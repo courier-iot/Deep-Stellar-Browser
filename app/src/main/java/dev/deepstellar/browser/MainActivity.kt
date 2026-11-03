@@ -1,0 +1,729 @@
+package dev.deepstellar.browser
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.app.SearchManager
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.content.res.ColorStateList
+import android.net.Uri
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
+import android.view.KeyEvent
+import android.view.View
+import android.view.ViewGroup
+import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.widget.ImageViewCompat
+import androidx.webkit.ProxyConfig
+import androidx.webkit.ProxyController
+import androidx.webkit.WebViewFeature
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
+import dev.deepstellar.browser.adblock.AdBlocker
+import dev.deepstellar.browser.bookmarks.Bookmark
+import dev.deepstellar.browser.bookmarks.BookmarkStore
+import dev.deepstellar.browser.downloads.DownloadEngine
+import dev.deepstellar.browser.torrent.TorrentEngine
+import dev.deepstellar.browser.history.HistoryStore
+import dev.deepstellar.browser.history.SuggestionEngine
+import dev.deepstellar.browser.ui.BookmarksActivity
+import dev.deepstellar.browser.ui.HistoryActivity
+import dev.deepstellar.browser.ui.Format
+import dev.deepstellar.browser.ui.SettingsActivity
+import dev.deepstellar.browser.ui.TransfersActivity
+import dev.deepstellar.browser.ui.Ui
+
+class MainActivity : AppCompatActivity(), BrowserHost {
+
+    private lateinit var tabs: TabManager
+    private lateinit var urlBar: EditText
+    private lateinit var progress: ProgressBar
+    private lateinit var webContainer: FrameLayout
+    private lateinit var fullscreenContainer: FrameLayout
+    private lateinit var tabCount: TextView
+    private lateinit var btnBookmark: ImageButton
+    private lateinit var btnShield: ImageButton
+    private lateinit var suggestScroll: ScrollView
+    private lateinit var suggestList: LinearLayout
+
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+    private var fileCallback: ValueCallback<Array<Uri>>? = null
+    private var lastBackPress = 0L
+    private var wiped = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val fileLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        fileCallback?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(res.resultCode, res.data))
+        fileCallback = null
+    }
+
+    private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    // ================================================================ lifecycle
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        setContentView(R.layout.activity_main)
+
+        urlBar = findViewById(R.id.urlBar)
+        progress = findViewById(R.id.progress)
+        webContainer = findViewById(R.id.webContainer)
+        fullscreenContainer = findViewById(R.id.fullscreenContainer)
+        tabCount = findViewById(R.id.btnTabs)
+        btnBookmark = findViewById(R.id.btnBookmark)
+        btnShield = findViewById(R.id.btnShield)
+        suggestScroll = findViewById(R.id.suggestScroll)
+        suggestList = findViewById(R.id.suggestList)
+
+        val chrome = findViewById<View>(R.id.chrome)
+        ViewCompat.setOnApplyWindowInsetsListener(chrome) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            v.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, ime.bottom))
+            insets
+        }
+
+        tabs = TabManager(this, this)
+        tabs.onCurrentChanged = { showTab(it) }
+
+        wireToolbar()
+        applyGlobalSettings()
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = onBack()
+        })
+
+        if (!handleIntent(intent)) tabs.open(BrowserEngine.startPageUrl())
+        ResourceGovernor.attach(tabs)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntent(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        applyGlobalSettings()
+        tabs.current?.webView?.onResume()
+        updateChrome()
+    }
+
+    override fun onPause() {
+        tabs.current?.webView?.onPause()
+        AdBlocker.saveNow()
+        HistoryStore.flush()
+        super.onPause()
+    }
+
+    override fun onDestroy() {
+        ResourceGovernor.detach()
+        if (isFinishing && !wiped) wipeEverything()
+        super.onDestroy()
+    }
+
+    // ================================================================ intents
+
+    private fun handleIntent(intent: Intent?): Boolean {
+        intent ?: return false
+        when (intent.action) {
+            Intent.ACTION_VIEW -> {
+                val data = intent.dataString ?: return false
+                if (data.startsWith("magnet:")) {
+                    onMagnet(data)
+                    return tabs.count > 0
+                }
+                openUrlFromOutside(data)
+                return true
+            }
+            Intent.ACTION_WEB_SEARCH -> {
+                val q = intent.getStringExtra(SearchManager.QUERY) ?: return false
+                openUrlFromOutside(Prefs.searchUrl(q))
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun openUrlFromOutside(url: String) {
+        if (tabs.open(url) == null) {
+            // Tab cap reached: load in the current tab instead.
+            tabs.current?.webView?.loadUrl(url, TabManager.extraHeaders())
+            toast("Tab limit reached — opened in this tab")
+        }
+    }
+
+    // ================================================================ toolbar
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun wireToolbar() {
+        urlBar.setOnEditorActionListener { _, actionId, event ->
+            if (actionId == EditorInfo.IME_ACTION_GO ||
+                (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+            ) {
+                navigate(urlBar.text.toString())
+                true
+            } else false
+        }
+        urlBar.setOnFocusChangeListener { _, focused ->
+            val t = tabs.current ?: return@setOnFocusChangeListener
+            if (focused) {
+                urlBar.setText(if (t.isStartPage) "" else t.url)
+                urlBar.selectAll()
+            } else {
+                hideSuggestions()
+                updateChrome()
+            }
+        }
+        urlBar.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (urlBar.hasFocus()) showSuggestions(s?.toString().orEmpty())
+            }
+        })
+
+        findViewById<View>(R.id.btnBack).setOnClickListener { tabs.current?.webView?.takeIf { it.canGoBack() }?.goBack() }
+        findViewById<View>(R.id.btnForward).setOnClickListener { tabs.current?.webView?.takeIf { it.canGoForward() }?.goForward() }
+        findViewById<View>(R.id.btnHome).setOnClickListener { load(BrowserEngine.startPageUrl()) }
+        findViewById<View>(R.id.btnReload).setOnClickListener {
+            val wv = tabs.current?.webView ?: return@setOnClickListener
+            if ((tabs.current?.progress ?: 100) < 100) wv.stopLoading() else wv.reload()
+        }
+        btnBookmark.setOnClickListener { toggleBookmark() }
+        btnBookmark.setOnLongClickListener { startActivity(Intent(this, BookmarksActivity::class.java)); true }
+        tabCount.setOnClickListener { showTabsSheet() }
+        tabCount.setOnLongClickListener { newTab(); true }
+        findViewById<View>(R.id.btnMenu).setOnClickListener { showMenuSheet() }
+        btnShield.setOnClickListener { showShieldSheet() }
+    }
+
+    // ================================================================ suggestions
+
+    private fun showSuggestions(typed: String) {
+        val current = tabs.current?.url
+        // While the full current URL is still selected (just focused), don't suggest.
+        if (typed.isBlank() || typed == current) { hideSuggestions(); return }
+        val results = SuggestionEngine.suggest(typed)
+        if (results.isEmpty()) { hideSuggestions(); return }
+        suggestList.removeAllViews()
+        for (s in results) {
+            val badge = when {
+                s.bookmarked -> "★  "
+                s.visits > 0 -> "◷  "
+                else -> ""
+            }
+            val fill = Ui.iconButton(this, R.drawable.ic_forward, "Edit this address") {
+                // Copy into the bar to tweak it instead of going straight there.
+                urlBar.setText(s.url)
+                urlBar.setSelection(urlBar.text.length)
+            }.apply { rotation = -135f } // ↖ arrow
+            suggestList.addView(Ui.row(this, badge + s.title, SuggestionEngine.bare(s.url),
+                onClick = { navigate(s.url) }, trailing = listOf(fill)))
+        }
+        suggestScroll.visibility = View.VISIBLE
+    }
+
+    private fun hideSuggestions() {
+        if (suggestScroll.visibility != View.GONE) {
+            suggestScroll.visibility = View.GONE
+            suggestList.removeAllViews()
+        }
+    }
+
+    private fun navigate(input: String) {
+        val text = input.trim()
+        if (text.isEmpty()) return
+        hideSuggestions()
+        hideKeyboard()
+        when {
+            text.startsWith("magnet:", ignoreCase = true) -> onMagnet(text)
+            looksLikeUrl(text) -> load(if (text.contains("://")) text else "https://$text")
+            else -> load(Prefs.searchUrl(text))
+        }
+    }
+
+    private fun looksLikeUrl(t: String): Boolean {
+        if (t.contains(' ')) return false
+        if (Regex("^[a-zA-Z][a-zA-Z0-9+.-]*://").containsMatchIn(t)) return true
+        if (t.startsWith("localhost")) return true
+        return Regex("^[\\w-]+(\\.[\\w-]+)+(:\\d+)?(/.*)?$").matches(t)
+    }
+
+    private fun load(url: String) {
+        val tab = tabs.current ?: return
+        tabs.ensureLive(tab).loadUrl(url, TabManager.extraHeaders())
+    }
+
+    private fun newTab(url: String = BrowserEngine.startPageUrl(), foreground: Boolean = true): Boolean {
+        if (tabs.open(url, foreground) == null) {
+            toast("Tab limit reached (${Prefs.tabLabel(Prefs.TAB_STEPS.indexOf(Prefs.maxTabs))}). Change it in Settings.")
+            return false
+        }
+        updateChrome()
+        return true
+    }
+
+    private fun showTab(tab: Tab) {
+        val wv = tab.webView ?: return
+        if (wv.parent !== webContainer) {
+            webContainer.removeAllViews()
+            (wv.parent as? ViewGroup)?.removeView(wv)
+            webContainer.addView(wv, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        }
+        updateChrome()
+    }
+
+    private fun updateChrome() {
+        val t = tabs.current ?: return
+        if (!urlBar.hasFocus()) {
+            urlBar.setText(if (t.isStartPage) "" else t.url.removePrefix("https://"))
+        }
+        progress.progress = t.progress
+        progress.visibility = if (t.progress in 1..99) View.VISIBLE else View.INVISIBLE
+        tabCount.text = if (tabs.count > 99) "∞" else tabs.count.toString()
+        val marked = !t.isStartPage && BookmarkStore.contains(t.url)
+        ImageViewCompat.setImageTintList(
+            btnBookmark,
+            ColorStateList.valueOf(ContextCompat.getColor(this, if (marked) R.color.nebula_violet else R.color.starlight)),
+        )
+        val shieldColor = when {
+            !Prefs.adblock -> R.color.starlight_dim
+            AdBlocker.isSiteAllowed(t.pageHost) -> R.color.solar_amber
+            else -> R.color.nebula_violet
+        }
+        ImageViewCompat.setImageTintList(btnShield, ColorStateList.valueOf(ContextCompat.getColor(this, shieldColor)))
+    }
+
+    private fun toggleBookmark() {
+        val t = tabs.current ?: return
+        if (t.isStartPage) { startActivity(Intent(this, BookmarksActivity::class.java)); return }
+        if (BookmarkStore.contains(t.url)) {
+            BookmarkStore.remove(t.url)
+            toast("Bookmark removed")
+        } else {
+            BookmarkStore.add(Bookmark(t.title.ifBlank { t.url }, t.url))
+            toast("Bookmarked ✦")
+        }
+        updateChrome()
+    }
+
+    // ================================================================ settings
+
+    private fun applyGlobalSettings() {
+        if (Prefs.secureScreen) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.PROXY_OVERRIDE)) {
+            val pc = ProxyController.getInstance()
+            if (Prefs.torProxy) {
+                val cfg = ProxyConfig.Builder()
+                    .addProxyRule(Prefs.proxyHostPort.trim().let { if (it.contains("://")) it else "http://$it" })
+                    .build() // no direct fallback: if Orbot is off, pages fail instead of leaking
+                pc.setProxyOverride(cfg, ContextCompat.getMainExecutor(this)) {}
+            } else {
+                pc.clearProxyOverride(ContextCompat.getMainExecutor(this)) {}
+            }
+        }
+
+        if (::tabs.isInitialized) {
+            tabs.tabs.forEach { t ->
+                t.webView?.let { wv ->
+                    BrowserEngine.applySettings(this, wv, t)
+                    BrowserEngine.applyThrottle(t)
+                }
+            }
+        }
+        TorrentEngine.applySettings()
+    }
+
+    // ================================================================ sheets
+
+    private fun sheet(build: (LinearLayout, BottomSheetDialog) -> Unit) {
+        val dlg = BottomSheetDialog(this)
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, Ui.dp(this@MainActivity, 8), 0, Ui.dp(this@MainActivity, 24))
+        }
+        build(list, dlg)
+        dlg.setContentView(ScrollView(this).apply { addView(list) })
+        dlg.show()
+    }
+
+    private fun showTabsSheet() = sheet { list, dlg ->
+        val cap = if (Prefs.maxTabs == Int.MAX_VALUE) "∞" else Prefs.maxTabs.toString()
+        list.addView(Ui.header(this, "Tabs · ${tabs.count} / $cap · ${tabs.liveCount()} in memory"))
+        tabs.tabs.toList().forEach { t ->
+            val close = Ui.iconButton(this, R.drawable.ic_close, "Close tab") {
+                tabs.close(t); dlg.dismiss(); updateChrome()
+            }
+            val sub = buildString {
+                append(if (t.isStartPage) "start page" else t.url.removePrefix("https://"))
+                if (!t.isLive) append("  · sleeping")
+                if (t.desktop) append("  · desktop")
+            }
+            list.addView(Ui.row(this, t.displayTitle(), sub, active = t === tabs.current,
+                onClick = { tabs.switchTo(t); dlg.dismiss() }, trailing = listOf(close)))
+        }
+        list.addView(Ui.row(this, "＋  New tab", null, onClick = { dlg.dismiss(); newTab() }))
+        if (tabs.count > 1) {
+            list.addView(Ui.row(this, "Close all other tabs", null, onClick = {
+                tabs.tabs.filter { it !== tabs.current }.forEach { tabs.close(it) }
+                dlg.dismiss(); updateChrome()
+            }))
+        }
+    }
+
+    private fun showMenuSheet() = sheet { list, dlg ->
+        val t = tabs.current
+        list.addView(Ui.header(this, "Deep Stellar"))
+        fun item(title: String, sub: String? = null, action: () -> Unit) {
+            list.addView(Ui.row(this, title, sub, onClick = { dlg.dismiss(); action() }))
+        }
+        item("New tab") { newTab() }
+        if (t != null) {
+            item("Desktop site", if (t.desktop) "On for this tab" else "Off for this tab") {
+                BrowserEngine.setDesktop(this, t, !t.desktop)
+            }
+        }
+        item("Bookmarks", "Open, import, export") { startActivity(Intent(this, BookmarksActivity::class.java)) }
+        if (HistoryStore.enabled) {
+            item("History", "Encrypted on this device") { startActivity(Intent(this, HistoryActivity::class.java)) }
+        }
+        item("Downloads & torrents", transfersSummary()) { startActivity(Intent(this, TransfersActivity::class.java)) }
+        item("Ad shield", "${AdBlocker.sessionBlocked.get()} blocked this session") { showShieldSheet() }
+        item("Resource monitor", "CPU: ${Prefs.CPU_LABELS[Prefs.cpuMode]} · RAM: ${Prefs.ramLabel(Prefs.RAM_STEPS_MB.indexOf(Prefs.ramBudgetMb))}") { showResourceSheet() }
+        if (t != null && !t.isStartPage) {
+            item("Share page") {
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
+            }
+            item("Copy link") { copy(t.url) }
+        }
+        item("Settings") { startActivity(Intent(this, SettingsActivity::class.java)) }
+        item("Exit & wipe", "Close all tabs and erase cookies, cache and site data") { exitAndWipe() }
+    }
+
+    private fun transfersSummary(): String {
+        val d = DownloadEngine.activeCount
+        val tr = TorrentEngine.activeCount
+        return if (d + tr == 0) "Nothing running" else "$d downloading · $tr torrents"
+    }
+
+    private fun showShieldSheet() = sheet { list, dlg ->
+        val t = tabs.current
+        list.addView(Ui.header(this, "Ad shield"))
+        list.addView(Ui.row(this, "${t?.blockedOnPage ?: 0} blocked on this page", "${AdBlocker.sessionBlocked.get()} this session · ${AdBlocker.sessionLearnedBlocks.get()} caught by learning"))
+        val model = if (AdBlocker.learnerWarm) "active" else "warming up"
+        list.addView(Ui.row(this, "Learning model: $model", "${AdBlocker.trainedExamples} examples learned · ${AdBlocker.listSize} listed domains"))
+        val host = t?.pageHost
+        if (host != null && t?.isStartPage == false) {
+            val allowed = AdBlocker.isSiteAllowed(host)
+            list.addView(Ui.row(this,
+                if (allowed) "Turn shield back on for this site" else "Site broken? Allow ads on this site",
+                host, onClick = {
+                    val now = AdBlocker.toggleSiteAllowed(host)
+                    toast(if (now) "Shield off for $host" else "Shield on for $host")
+                    dlg.dismiss(); updateChrome(); t?.webView?.reload()
+                }))
+        }
+        list.addView(Ui.row(this, "Tip", "Long-press any ad image or link → \"Block as ad\" to teach the shield."))
+    }
+
+    private fun showResourceSheet() {
+        val dlg = BottomSheetDialog(this)
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, Ui.dp(this@MainActivity, 8), 0, Ui.dp(this@MainActivity, 24))
+        }
+        fun render(s: ResourceGovernor.Snapshot?) {
+            body.removeAllViews()
+            body.addView(Ui.header(this, "Resource monitor"))
+            if (s == null) { body.addView(Ui.row(this, "Measuring…", null)); return }
+            val budget = if (s.budgetMb == Int.MAX_VALUE) "no limit" else "${s.budgetMb} MB budget"
+            body.addView(Ui.row(this, "Memory ≈ ${s.estimatedMb} MB", "$budget · app process ${s.appPssMb} MB · pages estimated per live tab"))
+            body.addView(Ui.row(this, "Browser CPU ${s.cpuPercent}%", "Mode: ${Prefs.CPU_LABELS[Prefs.cpuMode]}${if (s.torrentThrottled) " · torrents throttled" else ""}"))
+            body.addView(Ui.row(this, "${s.liveTabs} of ${s.totalTabs} tabs in memory", "${s.suspendedByGovernor} tab suspensions so far — sleeping tabs reload when opened"))
+            body.addView(Ui.row(this, "Change limits", "Settings → Performance", onClick = {
+                dlg.dismiss(); startActivity(Intent(this, SettingsActivity::class.java))
+            }))
+        }
+        render(ResourceGovernor.last)
+        ResourceGovernor.listener = { s -> if (dlg.isShowing) render(s) }
+        dlg.setOnDismissListener { ResourceGovernor.listener = null }
+        dlg.setContentView(ScrollView(this).apply { addView(body) })
+        dlg.show()
+    }
+
+    // ================================================================ BrowserHost
+
+    override fun onTabUpdated(tab: Tab) {
+        if (tab === tabs.current) updateChrome()
+    }
+
+    override fun onSpecialUrl(tab: Tab, uri: Uri) {
+        when (uri.host) {
+            "search" -> uri.getQueryParameter("q")?.let { tab.webView?.loadUrl(Prefs.searchUrl(it), TabManager.extraHeaders()) }
+            "bookmarks" -> startActivity(Intent(this, BookmarksActivity::class.java))
+        }
+    }
+
+    override fun onMagnet(uri: String) {
+        if (Prefs.torProxy) {
+            MaterialAlertDialogBuilder(this)
+                .setTitle("Torrent outside Tor")
+                .setMessage("BitTorrent traffic can't go through Tor. Your real IP will be visible to peers. Start anyway?")
+                .setPositiveButton("Start") { _, _ -> startMagnet(uri) }
+                .setNegativeButton("Cancel", null)
+                .show()
+        } else startMagnet(uri)
+    }
+
+    private fun startMagnet(uri: String) {
+        askNotificationsOnce()
+        val item = TorrentEngine.addMagnet(this, uri)
+        snackTransfers("Torrent added: ${item.name}")
+    }
+
+    override fun onExternalIntent(uri: String) {
+        try {
+            val intent = if (uri.startsWith("intent:")) Intent.parseUri(uri, Intent.URI_INTENT_SCHEME)
+            else Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+            intent.addCategory(Intent.CATEGORY_BROWSABLE)
+            intent.component = null
+            intent.selector = null
+            startActivity(intent)
+        } catch (e: ActivityNotFoundException) {
+            // intent:// links often carry a web fallback
+            val fallback = runCatching {
+                Intent.parseUri(uri, Intent.URI_INTENT_SCHEME).getStringExtra("browser_fallback_url")
+            }.getOrNull()
+            if (fallback != null && fallback.startsWith("http")) load(fallback) else toast("No app can open this link")
+        } catch (e: Exception) {
+            toast("Can't open this link")
+        }
+    }
+
+    override fun onDownloadRequested(tab: Tab, url: String, userAgent: String, contentDisposition: String?, mimeType: String?, length: Long) {
+        val isTorrent = mimeType == "application/x-bittorrent" ||
+            url.substringBefore('?').endsWith(".torrent", ignoreCase = true) ||
+            (contentDisposition?.contains(".torrent", ignoreCase = true) == true)
+        if (url.startsWith("blob:")) {
+            toast("This site builds the file in-page (blob:), which can't be downloaded yet")
+            return
+        }
+        askNotificationsOnce()
+        if (isTorrent) {
+            val item = TorrentEngine.addTorrentUrl(this, url, userAgent)
+            snackTransfers("Torrent added: ${item.name}")
+        } else {
+            val item = DownloadEngine.enqueue(this, url, userAgent, contentDisposition, mimeType, tab.url)
+            val size = if (length > 0) " (${Format.bytes(length)})" else ""
+            snackTransfers("Downloading ${item.fileName}$size")
+        }
+    }
+
+    override fun onLongPress(tab: Tab, result: WebView.HitTestResult): Boolean {
+        val extra = result.extra ?: return false
+        return when (result.type) {
+            WebView.HitTestResult.SRC_ANCHOR_TYPE -> { linkMenu(tab, extra, null); true }
+            WebView.HitTestResult.IMAGE_TYPE -> { linkMenu(tab, null, extra); true }
+            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                val wv = tab.webView ?: return false
+                val h = Handler(Looper.getMainLooper()) { msg ->
+                    linkMenu(tab, msg.data.getString("url"), extra); true
+                }
+                wv.requestFocusNodeHref(h.obtainMessage())
+                true
+            }
+            else -> false
+        }
+    }
+
+    private fun linkMenu(tab: Tab, link: String?, image: String?) {
+        val labels = mutableListOf<String>()
+        val actions = mutableListOf<() -> Unit>()
+        fun add(l: String, a: () -> Unit) { labels += l; actions += a }
+
+        if (link != null) {
+            add("Open in new tab") { newTab(link) }
+            add("Open in background tab") { if (newTab(link, foreground = false)) toast("Opened in background") }
+            add("Copy link") { copy(link) }
+            add("Share link") {
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), "Share"))
+            }
+            add("Download link") { onDownloadRequested(tab, link, BrowserEngine.userAgentFor(this, tab), null, null, -1) }
+        }
+        if (image != null) {
+            add("Open image in new tab") { newTab(image) }
+            add("Download image") { onDownloadRequested(tab, image, BrowserEngine.userAgentFor(this, tab), null, null, -1) }
+        }
+        val target = image ?: link
+        if (target != null && target.startsWith("http")) {
+            add("Block as ad ✕") {
+                AdBlocker.userFlagAd(target, tab.pageHost)
+                toast("Shield learned from this. Reloading…")
+                tab.webView?.reload()
+            }
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle((link ?: image ?: "").take(120))
+            .setItems(labels.toTypedArray()) { _, which -> actions[which]() }
+            .show()
+    }
+
+    override fun onNewWindow(opener: Tab, resultMsg: Message): Boolean {
+        val wv = tabs.openForWindow()
+        if (wv == null) {
+            toast("Tab limit reached")
+            return false
+        }
+        val transport = resultMsg.obj as? WebView.WebViewTransport ?: return false
+        transport.webView = wv
+        resultMsg.sendToTarget()
+        updateChrome()
+        return true
+    }
+
+    override fun onShowCustomView(view: View, callback: WebChromeClient.CustomViewCallback) {
+        if (customView != null) { callback.onCustomViewHidden(); return }
+        customView = view
+        customViewCallback = callback
+        fullscreenContainer.addView(view, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        fullscreenContainer.visibility = View.VISIBLE
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    override fun onHideCustomView() {
+        val v = customView ?: return
+        fullscreenContainer.removeView(v)
+        fullscreenContainer.visibility = View.GONE
+        customView = null
+        customViewCallback?.onCustomViewHidden()
+        customViewCallback = null
+        WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+    }
+
+    override fun onFileChooser(callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean {
+        fileCallback?.onReceiveValue(null)
+        fileCallback = callback
+        return try {
+            fileLauncher.launch(params.createIntent())
+            true
+        } catch (e: Exception) {
+            fileCallback = null
+            false
+        }
+    }
+
+    override fun onHttpsUpgradeFailed(tab: Tab, httpUrl: String) {
+        val host = Uri.parse(httpUrl).host ?: return
+        MaterialAlertDialogBuilder(this)
+            .setTitle("No secure connection")
+            .setMessage("$host doesn't seem to support HTTPS. Loading it over plain HTTP means anyone on the network can see and change the page.")
+            .setPositiveButton("Load insecure") { _, _ ->
+                tab.httpAllowedHost = host
+                tab.webView?.loadUrl(httpUrl)
+            }
+            .setNegativeButton("Stay safe", null)
+            .show()
+    }
+
+    override fun onRendererGone(tab: Tab) {
+        mainHandler.post {
+            tabs.recreateAfterCrash(tab)
+            if (tab === tabs.current) toast("Page crashed and was reloaded")
+        }
+    }
+
+    // ================================================================ back / exit
+
+    private fun onBack() {
+        if (customView != null) { onHideCustomView(); return }
+        if (urlBar.hasFocus()) { urlBar.clearFocus(); hideKeyboard(); return }
+        val wv = tabs.current?.webView
+        if (wv != null && wv.canGoBack()) { wv.goBack(); return }
+        if (tabs.count > 1) { tabs.current?.let { tabs.close(it) }; updateChrome(); return }
+        val now = System.currentTimeMillis()
+        if (now - lastBackPress < 2000) exitAndWipe()
+        else { lastBackPress = now; toast("Press back again to exit & wipe") }
+    }
+
+    private fun exitAndWipe() {
+        wipeEverything()
+        finishAndRemoveTask()
+    }
+
+    private fun wipeEverything() {
+        if (wiped) return
+        wiped = true
+        PrivacyWiper.wipeWebData(this, tabs.current?.webView)
+        tabs.closeAll()
+        webContainer.removeAllViews()
+        AdBlocker.saveNow()
+        if (DownloadEngine.activeCount == 0 && TorrentEngine.activeCount == 0) TorrentEngine.shutdown()
+    }
+
+    // ================================================================ helpers
+
+    private fun askNotificationsOnce() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            !Prefs.raw.getBoolean("asked_notif", false)
+        ) {
+            Prefs.raw.edit().putBoolean("asked_notif", true).apply()
+            notifPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+
+    private fun snackTransfers(text: String) {
+        Snackbar.make(webContainer, text, Snackbar.LENGTH_LONG)
+            .setAction("View") { startActivity(Intent(this, TransfersActivity::class.java)) }
+            .setActionTextColor(ContextCompat.getColor(this, R.color.cosmic_blue))
+            .show()
+    }
+
+    private fun copy(text: String) {
+        getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("link", text))
+        if (Build.VERSION.SDK_INT < 33) toast("Copied")
+    }
+
+    private fun hideKeyboard() {
+        getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(urlBar.windowToken, 0)
+        urlBar.clearFocus()
+    }
+
+    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+}

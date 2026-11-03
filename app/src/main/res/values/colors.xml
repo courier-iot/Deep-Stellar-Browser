@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Deep space palette -->
+    <color name="void_black">#05060F</color>
+    <color name="void_surface">#0B0E1F</color>
+    <color name="void_surface_2">#121633</color>
+    <color name="void_stroke">#26305A</color>
+    <color name="starlight">#E8ECFF</color>
+    <color name="starlight_dim">#8A93C2</color>
+    <color name="nebula_violet">#9B7BFF</color>
+    <color name="cosmic_blue">#5AB8FF</color>
+    <color name="nova_pink">#FF7AD9</color>
+    <color name="solar_amber">#FFB86B</color>
+    <color name="ic_launcher_background">#05060F</color>
+</resources>

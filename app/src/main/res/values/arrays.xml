@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="engine_names">
+        <item>DuckDuckGo</item>
+        <item>DuckDuckGo Lite (no JavaScript)</item>
+        <item>Brave Search</item>
+        <item>Startpage</item>
+        <item>Mojeek</item>
+        <item>SearXNG (your instance)</item>
+    </string-array>
+    <string-array name="engine_values">
+        <item>ddg</item>
+        <item>ddg_lite</item>
+        <item>brave</item>
+        <item>startpage</item>
+        <item>mojeek</item>
+        <item>searx</item>
+    </string-array>
+    <string-array name="history_days_names">
+        <item>1 day</item>
+        <item>7 days</item>
+        <item>30 days</item>
+        <item>1 year</item>
+        <item>Forever</item>
+    </string-array>
+    <string-array name="history_days_values">
+        <item>1</item>
+        <item>7</item>
+        <item>30</item>
+        <item>365</item>
+        <item>0</item>
+    </string-array>
+</resources>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Deep Stellar</title>
+<style>
+  :root{
+    --void:#05060F; --surface:#0B0E1F; --surface2:#121633; --stroke:#26305A;
+    --star:#E8ECFF; --dim:#8A93C2; --violet:#9B7BFF; --blue:#5AB8FF; --pink:#FF7AD9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--void);color:var(--star);
+    font-family:"Exo 2","Orbitron","Eurostile",ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+  canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  .nebula{position:fixed;inset:-20%;pointer-events:none;filter:blur(40px);opacity:.55;
+    background:
+      radial-gradient(40% 30% at 25% 30%, rgba(123,92,255,.35), transparent 70%),
+      radial-gradient(35% 28% at 78% 62%, rgba(90,184,255,.22), transparent 70%),
+      radial-gradient(28% 22% at 60% 18%, rgba(255,122,217,.14), transparent 70%);
+    animation:drift 60s ease-in-out infinite alternate}
+  @keyframes drift{to{transform:translate3d(-4%,3%,0) rotate(4deg)}}
+  main{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px 16px 12vh}
+  .clock{font-variant-numeric:tabular-nums;font-size:13px;letter-spacing:.35em;color:var(--dim);margin-bottom:14px}
+  h1{font-weight:300;font-size:clamp(26px,8vw,44px);letter-spacing:.32em;text-indent:.32em;
+    background:linear-gradient(90deg,#E8ECFF,#B9A8FF 45%,#8FD0FF);-webkit-background-clip:text;
+    background-clip:text;color:transparent;text-shadow:0 0 30px rgba(155,123,255,.25)}
+  .sub{font-size:11px;letter-spacing:.5em;text-indent:.5em;color:var(--dim);margin:8px 0 34px}
+  form{width:min(560px,100%);position:relative}
+  input{width:100%;height:52px;border-radius:26px;border:1px solid var(--stroke);
+    background:rgba(18,22,51,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    color:var(--star);font-size:16px;padding:0 54px 0 22px;outline:none;
+    box-shadow:0 0 0 0 rgba(155,123,255,0);transition:box-shadow .3s,border-color .3s}
+  input::placeholder{color:var(--dim)}
+  input:focus{border-color:var(--violet);box-shadow:0 0 24px rgba(155,123,255,.28)}
+  button{position:absolute;right:6px;top:6px;width:40px;height:40px;border-radius:50%;border:0;
+    background:radial-gradient(circle at 35% 30%,#C9B8FF,#7B5CFF 60%,#2A1F6E);cursor:pointer}
+  button svg{width:18px;height:18px;fill:var(--void);margin-top:3px}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:min(560px,100%);margin-top:30px}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--dim);font-size:11px;letter-spacing:.06em}
+  .orb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
+    border:1px solid var(--stroke);background:rgba(11,14,31,.7);color:var(--star);font-size:16px;font-weight:600;
+    transition:transform .2s,border-color .2s}
+  .tile:active .orb{transform:scale(.92);border-color:var(--blue)}
+  footer{position:fixed;bottom:12px;left:0;right:0;text-align:center;z-index:2;font-size:10px;
+    letter-spacing:.3em;color:rgba(138,147,194,.6)}
+  @media (prefers-reduced-motion: reduce){.nebula{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="nebula"></div>
+<main>
+  <div class="clock" id="clock">--:--</div>
+  <h1>DEEP STELLAR</h1>
+  <div class="sub">BROWSING</div>
+  <form id="f" autocomplete="off">
+    <input id="q" type="search" placeholder="Search the void…" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
+    <button type="submit" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></button>
+  </form>
+  <nav class="tiles">
+    <a class="tile" href="https://en.wikipedia.org"><span class="orb">W</span>Wikipedia</a>
+    <a class="tile" href="https://www.openstreetmap.org"><span class="orb">⌖</span>Maps</a>
+    <a class="tile" href="https://archive.org"><span class="orb">◷</span>Archive</a>
+    <a class="tile" href="https://github.com"><span class="orb">⌥</span>GitHub</a>
+    <a class="tile" href="https://apod.nasa.gov/apod/astropix.html"><span class="orb">✦</span>APOD</a>
+    <a class="tile" href="https://www.reddit.com/r/space"><span class="orb">◉</span>r/space</a>
+    <a class="tile" href="https://news.ycombinator.com"><span class="orb">Y</span>HN</a>
+    <a class="tile" href="dsb://bookmarks"><span class="orb">★</span>Bookmarks</a>
+  </nav>
+</main>
+<footer>NO HISTORY · NO TRACKING · NO TRACE</footer>
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var still = params.get('still') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var fps = Math.max(5, Math.min(60, parseInt(params.get('fps') || '60', 10)));
+
+  document.getElementById('f').addEventListener('submit', function(e){
+    e.preventDefault();
+    var v = document.getElementById('q').value.trim();
+    if (v) location.href = 'dsb://search?q=' + encodeURIComponent(v);
+  });
+
+  function tick(){
+    var d = new Date();
+    document.getElementById('clock').textContent =
+      String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  }
+  tick(); setInterval(tick, 15000);
+
+  // ---- Starfield: three depth layers drifting slowly, a few twinkling, rare shooting star.
+  var c = document.getElementById('sky'), ctx = c.getContext('2d');
+  var W, H, dpr, stars = [], shooting = null;
+  function resize(){
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = c.width = innerWidth * dpr; H = c.height = innerHeight * dpr;
+    var n = Math.round((innerWidth * innerHeight) / 2600);
+    stars = [];
+    for (var i = 0; i < n; i++) {
+      var layer = Math.random();
+      stars.push({
+        x: Math.random() * W, y: Math.random() * H,
+        r: (layer < .7 ? .5 : layer < .93 ? .9 : 1.5) * dpr,
+        v: (layer < .7 ? .02 : layer < .93 ? .05 : .11) * dpr,
+        a: .35 + Math.random() * .65,
+        tw: Math.random() < .25 ? Math.random() * Math.PI * 2 : -1,
+        hue: Math.random() < .12 ? (Math.random() < .5 ? '201,184,255' : '155,212,255') : '232,236,255'
+      });
+    }
+    draw(0);
+  }
+  function draw(t){
+    ctx.clearRect(0,0,W,H);
+    for (var i = 0; i < stars.length; i++) {
+      var s = stars[i];
+      if (!still) { s.x -= s.v; if (s.x < -2) { s.x = W + 2; s.y = Math.random() * H; } }
+      var a = s.a;
+      if (s.tw >= 0) a *= .55 + .45 * Math.sin(t / 900 + s.tw);
+      ctx.fillStyle = 'rgba(' + s.hue + ',' + a.toFixed(3) + ')';
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.2832); ctx.fill();
+    }
+    if (!still) {
+      if (!shooting && Math.random() < .002) {
+        shooting = { x: Math.random() * W * .8 + W * .2, y: Math.random() * H * .4, life: 1 };
+      }
+      if (shooting) {
+        var sx = shooting.x, sy = shooting.y, len = 90 * dpr;
+        var g = ctx.createLinearGradient(sx, sy, sx + len, sy - len * .35);
+        g.addColorStop(0, 'rgba(232,236,255,' + shooting.life + ')');
+        g.addColorStop(1, 'rgba(232,236,255,0)');
+        ctx.strokeStyle = g; ctx.lineWidth = 1.2 * dpr;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + len, sy - len * .35); ctx.stroke();
+        shooting.x -= 9 * dpr; shooting.y += 3.2 * dpr; shooting.life -= .025;
+        if (shooting.life <= 0) shooting = null;
+      }
+    }
+  }
+  var last = 0, frameGap = 1000 / fps;
+  function loop(t){
+    if (t - last >= frameGap) { last = t; draw(t); }
+    if (!still) requestAnimationFrame(loop);
+  }
+  addEventListener('resize', resize);
+  resize();
+  if (!still) requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

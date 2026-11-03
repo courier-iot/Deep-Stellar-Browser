@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DeepStellar" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/nebula_violet</item>
+        <item name="colorOnPrimary">@color/void_black</item>
+        <item name="colorPrimaryContainer">@color/void_surface_2</item>
+        <item name="colorOnPrimaryContainer">@color/starlight</item>
+        <item name="colorSecondary">@color/cosmic_blue</item>
+        <item name="colorOnSecondary">@color/void_black</item>
+        <item name="colorTertiary">@color/nova_pink</item>
+        <item name="colorSurface">@color/void_surface</item>
+        <item name="colorOnSurface">@color/starlight</item>
+        <item name="colorSurfaceVariant">@color/void_surface_2</item>
+        <item name="colorOnSurfaceVariant">@color/starlight_dim</item>
+        <item name="colorSurfaceContainer">@color/void_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/void_surface_2</item>
+        <item name="colorSurfaceContainerLow">@color/void_surface</item>
+        <item name="colorOutline">@color/void_stroke</item>
+        <item name="android:colorBackground">@color/void_black</item>
+        <item name="android:windowBackground">@color/void_black</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+    </style>
+
+    <style name="DS.IconButton" parent="Widget.Material3.Button.IconButton">
+        <item name="iconTint">@color/starlight</item>
+        <item name="iconSize">22dp</item>
+        <item name="android:minWidth">44dp</item>
+        <item name="android:minHeight">44dp</item>
+    </style>
+</resources>

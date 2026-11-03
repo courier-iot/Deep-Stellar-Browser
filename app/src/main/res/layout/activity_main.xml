@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/void_black">
+
+    <LinearLayout
+        android:id="@+id/chrome"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <!-- Top bar: shield · address · tab counter · menu -->
+        <LinearLayout
+            android:id="@+id/topBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/void_black"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingTop="6dp"
+            android:paddingEnd="6dp"
+            android:paddingBottom="6dp">
+
+            <ImageButton
+                android:id="@+id/btnShield"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/shield"
+                android:src="@drawable/ic_shield"
+                app:tint="@color/nebula_violet"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+            <EditText
+                android:id="@+id/urlBar"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_urlbar"
+                android:fontFamily="monospace"
+                android:hint="@string/url_hint"
+                android:imeOptions="actionGo|flagNoPersonalizedLearning|flagNoExtractUi"
+                android:importantForAutofill="no"
+                android:inputType="textUri|textNoSuggestions"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:selectAllOnFocus="true"
+                android:singleLine="true"
+                android:textColor="@color/starlight"
+                android:textColorHint="@color/starlight_dim"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/btnTabs"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_tabcount"
+                android:contentDescription="@string/tabs"
+                android:fontFamily="monospace"
+                android:gravity="center"
+                android:text="1"
+                android:textColor="@color/cosmic_blue"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btnMenu"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/menu"
+                android:src="@drawable/ic_more"
+                app:tint="@color/starlight"
+                xmlns:app="http://schemas.android.com/apk/res-auto" />
+        </LinearLayout>
+
+        <ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:max="100"
+            android:progressDrawable="@drawable/progress_nebula"
+            android:visibility="invisible" />
+
+        <!-- Address-bar suggestions (bookmarks + optional history), shown while typing -->
+        <ScrollView
+            android:id="@+id/suggestScroll"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/void_surface"
+            android:visibility="gone">
+            <LinearLayout
+                android:id="@+id/suggestList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="6dp" />
+        </ScrollView>
+
+        <FrameLayout
+            android:id="@+id/webContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="@color/void_black" />
+
+        <!-- Bottom bar -->
+        <LinearLayout
+            android:id="@+id/bottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:background="@drawable/bg_bar"
+            android:gravity="center"
+            android:orientation="horizontal"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/back"
+                android:src="@drawable/ic_back" app:tint="@color/starlight" />
+            <ImageButton android:id="@+id/btnForward" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/forward"
+                android:src="@drawable/ic_forward" app:tint="@color/starlight" />
+            <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/home"
+                android:src="@drawable/ic_home" app:tint="@color/cosmic_blue" />
+            <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/bookmarks"
+                android:src="@drawable/ic_star" app:tint="@color/starlight" />
+            <ImageButton android:id="@+id/btnReload" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/reload"
+                android:src="@drawable/ic_reload" app:tint="@color/starlight" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Fullscreen video lands here -->
+    <FrameLayout
+        android:id="@+id/fullscreenContainer"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/black"
+        android:visibility="gone" />
+</FrameLayout>

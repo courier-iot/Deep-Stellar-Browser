@@ -1,0 +1,34 @@
+package dev.deepstellar.browser
+
+import android.os.Bundle
+import android.webkit.WebView
+import androidx.webkit.ScriptHandler
+
+/**
+ * One browser tab. Everything here lives in memory only and disappears when
+ * the tab is closed or the app exits.
+ */
+class Tab(val id: Long, var url: String, var desktop: Boolean) {
+    var title: String = ""
+    var webView: WebView? = null
+    /** Back/forward list kept in RAM while the tab is suspended to save memory. */
+    var savedState: Bundle? = null
+    var lastActive: Long = System.currentTimeMillis()
+    var progress: Int = 100
+
+    @Volatile var pageHost: String? = null
+    @Volatile var blockedOnPage: Int = 0
+
+    /** Host the user agreed to load over plain HTTP despite HTTPS-only mode. */
+    var httpAllowedHost: String? = null
+    var throttleScript: ScriptHandler? = null
+
+    val isLive: Boolean get() = webView != null
+    val isStartPage: Boolean get() = url.startsWith(BrowserEngine.START_PAGE_PREFIX)
+
+    fun displayTitle(): String = when {
+        isStartPage -> "New tab"
+        title.isNotBlank() -> title
+        else -> url
+    }
+}

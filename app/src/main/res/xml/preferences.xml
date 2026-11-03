@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Search" app:iconSpaceReserved="false">
+        <ListPreference
+            android:key="search_engine"
+            android:title="Search engine"
+            android:defaultValue="ddg"
+            android:entries="@array/engine_names"
+            android:entryValues="@array/engine_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="suggest_enabled"
+            android:title="Address bar suggestions"
+            android:summary="Matches your bookmarks (and history, if on) as you type. Done on the phone — nothing is sent to a search engine."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <EditTextPreference
+            android:key="searx_url"
+            android:title="SearXNG instance"
+            android:defaultValue="https://searx.be"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Tabs" app:iconSpaceReserved="false">
+        <SeekBarPreference
+            android:key="tab_limit_index"
+            android:title="Maximum tabs"
+            android:defaultValue="3"
+            android:max="6"
+            app:min="0"
+            app:showSeekBarValue="false"
+            app:updatesContinuously="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="desktop_default"
+            android:title="Desktop site by default"
+            android:summary="New tabs request the desktop version of pages"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Performance" app:iconSpaceReserved="false">
+        <SeekBarPreference
+            android:key="cpu_mode"
+            android:title="CPU limiter"
+            android:defaultValue="1"
+            android:max="3"
+            app:min="0"
+            app:showSeekBarValue="false"
+            app:updatesContinuously="true"
+            app:iconSpaceReserved="false" />
+        <SeekBarPreference
+            android:key="ram_limit_index"
+            android:title="RAM limiter"
+            android:defaultValue="3"
+            android:max="6"
+            app:min="0"
+            app:showSeekBarValue="false"
+            app:updatesContinuously="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="ultra_no_images"
+            android:title="No images in Ultra-eco"
+            android:summary="Skip loading images when the CPU limiter is on Ultra-eco"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Ad shield" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="adblock_enabled"
+            android:title="Block ads &amp; trackers"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="adblock_learning"
+            android:title="Self-learning blocker"
+            android:summary="Learns what ads look like and catches ones no list has seen. Stores only hashed numbers — never URLs."
+            android:defaultValue="true"
+            android:dependency="adblock_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="adblock_cosmetic"
+            android:title="Hide leftover ad boxes"
+            android:defaultValue="true"
+            android:dependency="adblock_enabled"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="update_lists"
+            android:title="Update filter lists"
+            android:summary="Download StevenBlack hosts + AdGuard DNS filter"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="reset_learning"
+            android:title="Reset learning"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="clear_user_blocks"
+            android:title="Clear my blocked domains"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="clear_allowed"
+            android:title="Clear allowed sites"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Privacy" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="https_only"
+            android:title="HTTPS-only mode"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="block_3p_cookies"
+            android:title="Block third-party cookies"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="send_gpc"
+            android:title="Send Global Privacy Control"
+            android:summary="Tells sites not to sell or share your data"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="js_enabled"
+            android:title="JavaScript"
+            android:summary="Turning this off breaks many sites but removes most tracking scripts"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="secure_screen"
+            android:title="Hide from screenshots &amp; recents"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="tor_proxy"
+            android:title="Route through Tor (Orbot)"
+            android:summary="Requires the Orbot app running. If Orbot is off, pages won't load — nothing leaks."
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <EditTextPreference
+            android:key="proxy_host"
+            android:title="Orbot HTTP proxy"
+            android:defaultValue="127.0.0.1:8118"
+            android:dependency="tor_proxy"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="wipe_now"
+            android:title="Wipe site data now"
+            android:summary="Cookies, cache, storage. Also happens automatically every time you exit."
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="History (optional)" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="history_enabled"
+            android:title="Save encrypted history"
+            android:summary="Off by default. When on, visited pages are saved in an AES-256 encrypted file whose key never leaves this phone's secure hardware."
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="history_days"
+            android:title="Keep history for"
+            android:defaultValue="30"
+            android:entries="@array/history_days_names"
+            android:entryValues="@array/history_days_values"
+            android:dependency="history_enabled"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="history_lock"
+            android:title="Lock with fingerprint / PIN"
+            android:summary="Ask to unlock every time you open History"
+            android:defaultValue="true"
+            android:dependency="history_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="history_pause_tor"
+            android:title="Pause while using Tor"
+            android:summary="Nothing is recorded while browsing through Orbot"
+            android:defaultValue="true"
+            android:dependency="history_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="suggest_history"
+            android:title="Suggest from history"
+            android:summary="History suggestions appear without the fingerprint/PIN lock — turn off if others use this phone"
+            android:defaultValue="true"
+            android:dependency="history_enabled"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="history_open"
+            android:title="Open history"
+            android:dependency="history_enabled"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Look" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="starfield"
+            android:title="Animated starfield"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="force_dark"
+            android:title="Darken websites"
+            android:summary="Ask pages to render dark (Android 13+)"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Torrents" app:iconSpaceReserved="false">
+        <EditTextPreference
+            android:key="torrent_down"
+            android:title="Download limit (KB/s, 0 = none)"
+            android:defaultValue="0"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <EditTextPreference
+            android:key="torrent_up"
+            android:title="Upload limit (KB/s, 0 = none)"
+            android:defaultValue="0"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="torrent_seed"
+            android:title="Keep seeding after download"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="About" app:iconSpaceReserved="false">
+        <Preference
+            android:key="about"
+            android:title="Deep Stellar Browsing"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+</PreferenceScreen>

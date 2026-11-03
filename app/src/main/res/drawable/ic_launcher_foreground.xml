@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A ringed planet with a few distant stars. 108dp adaptive canvas, safe zone ~66dp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- stars -->
+    <path android:fillColor="#E8ECFF" android:pathData="M30,32m-1.2,0a1.2,1.2 0,1 1,2.4 0a1.2,1.2 0,1 1,-2.4 0"/>
+    <path android:fillColor="#9B7BFF" android:pathData="M78,30m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0"/>
+    <path android:fillColor="#5AB8FF" android:pathData="M76,78m-1.1,0a1.1,1.1 0,1 1,2.2 0a1.1,1.1 0,1 1,-2.2 0"/>
+    <path android:fillColor="#E8ECFF" android:pathData="M34,76m-0.9,0a0.9,0.9 0,1 1,1.8 0a0.9,0.9 0,1 1,-1.8 0"/>
+    <!-- 4-point sparkle -->
+    <path android:fillColor="#E8ECFF" android:pathData="M70,38 L71,41 L74,42 L71,43 L70,46 L69,43 L66,42 L69,41 Z"/>
+    <!-- back half of ring -->
+    <group android:rotation="-22" android:pivotX="54" android:pivotY="54">
+        <path android:strokeColor="#5AB8FF" android:strokeWidth="2.2" android:fillColor="#00000000"
+            android:pathData="M27,54 A27,7 0 0,1 81,54"/>
+    </group>
+    <!-- planet -->
+    <path android:pathData="M54,54m-16,0a16,16 0,1 1,32 0a16,16 0,1 1,-32 0">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="radial" android:centerX="48" android:centerY="47" android:gradientRadius="22"
+                android:startColor="#C9B8FF" android:centerColor="#7B5CFF" android:endColor="#1B1450"/>
+        </aapt:attr>
+    </path>
+    <!-- front half of ring -->
+    <group android:rotation="-22" android:pivotX="54" android:pivotY="54">
+        <path android:strokeColor="#9BD4FF" android:strokeWidth="2.2" android:fillColor="#00000000"
+            android:pathData="M81,54 A27,7 0 0,1 27,54"/>
+    </group>
+</vector>
