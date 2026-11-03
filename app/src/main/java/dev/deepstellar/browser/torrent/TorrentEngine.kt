@@ -194,7 +194,8 @@ object TorrentEngine {
     private val pendingByName = java.util.concurrent.ConcurrentHashMap<String, Item>()
 
     private fun onAdded(th: TorrentHandle) {
-        val name = runCatching { th.name() }.getOrNull() ?: return
+        // libtorrent4j 2.x exposes this as getName(), i.e. a Kotlin property.
+        val name = runCatching { th.name }.getOrNull() ?: return
         val item = pendingByName.remove(name) ?: items.firstOrNull { it.handle == null && it.name == name } ?: return
         item.handle = th
     }
