@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import dev.deepstellar.browser.NetUtil
 import dev.deepstellar.browser.Prefs
+import dev.deepstellar.browser.SafeMode
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
