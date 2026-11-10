@@ -102,8 +102,8 @@ object TorrentEngine {
     private val seedMinutes get() = Prefs.raw.getString("torrent_seed_minutes", "0")?.toLongOrNull() ?: 0L
 
     // Priorities are looked up by their libtorrent number (0 = don't download, 4 = normal).
-    private val P_SKIP: Priority by lazy { Priority.values().first { it.swig() == 0 } }
-    private val P_NORMAL: Priority by lazy { Priority.values().firstOrNull { it.swig() == 4 } ?: Priority.values().last() }
+    private val P_SKIP: Priority by lazy { Priority.values().first { it.swig().toInt() == 0 } }
+    private val P_NORMAL: Priority by lazy { Priority.values().firstOrNull { it.swig().toInt() == 4 } ?: Priority.values().last() }
 
     // ------------------------------------------------------------- session
 
