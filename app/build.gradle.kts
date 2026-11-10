@@ -88,6 +88,7 @@ dependencies {
     // Automatic backups: WorkManager schedules them, DocumentFile writes to the folder you pick
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.documentfile:documentfile:1.0.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
     // QR: ZXing (Apache-2.0) for encode/decode, CameraX for the scanner (tap-to-focus, zoom, torch)
     implementation("com.google.zxing:core:3.5.3")

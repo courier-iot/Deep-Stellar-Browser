@@ -24,17 +24,21 @@ dev.deepstellar.browser
 ├── CrashLog          On-device crash reports with addresses scrubbed
 ├── StartShortcuts    Start-page sections + your shortcuts, served to start.html at /data/start.json
 ├── projects/Projects  Built-in Projects page data (assets/projects.json) + optional 6-hourly GitHub check (WorkManager, ETag)
+├── PageScripts       WebRTC relay-only, fingerprint noise, referrer trimming, cookie-banner script
+├── SitePrefs         Per-site permissions, JavaScript, desktop mode, text zoom
+├── Bangs             Search shortcuts
 ├── NetUtil               The only place the app opens its own HTTP connections (respects Tor)
 ├── Prefs                 Typed access to settings (SharedPreferences)
 │
-├── adblock/   AdBlocker (lists, user list, cosmetic CSS), AdLearner (hashed logistic regression), FilterUpdates (WorkManager),
+├── adblock/   AdBlocker (lists, user list, cosmetic CSS), FilterEngine (EasyList syntax, keyword-indexed),
+│              AdLearner (hashed logistic regression), FilterUpdates (WorkManager),
 │              DomainUtil (registrable domain, first/third party)
 ├── inspect/   PageLogs (per-page request + console logs, tracker report), Inspector (source capture,
 │              pretty JSON/XML, highlighting, certificate), MarkdownView
 ├── history/   HistoryStore (opt-in, AES-GCM with an Android Keystore key), SuggestionEngine
 ├── bookmarks/ BookmarkStore, NetscapeBookmarks (standard import/export format)
 ├── downloads/ DownloadEngine (HTTP with pause/resume), TransferService (foreground service)
-├── torrent/   TorrentEngine (libtorrent4j)
+├── torrent/   TorrentEngine (libtorrent4j): resume index in filesDir/torrents, file priorities, queue, network rules
 ├── backup/    BackupManager (PBKDF2 + AES-GCM encrypted .dsbackup files), AutoBackup + AutoBackupWorker
 │              (WorkManager schedule; derived key wrapped by an Android Keystore key; DocumentFile folder)
 ├── qr/        QrCodec (ZXing encode/decode)

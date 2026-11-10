@@ -156,12 +156,19 @@
                 android:paddingBottom="6dp" />
         </ScrollView>
 
-        <FrameLayout
-            android:id="@+id/webContainer"
+        <!-- Pull down at the top of a page to reload -->
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            android:layout_weight="1"
-            android:background="?attr/dsBg" />
+            android:layout_weight="1">
+
+            <FrameLayout
+                android:id="@+id/webContainer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="?attr/dsBg" />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
         <!-- Bottom bar -->
         <LinearLayout

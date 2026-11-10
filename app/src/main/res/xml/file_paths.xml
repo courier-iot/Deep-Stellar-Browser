@@ -2,4 +2,6 @@
 <paths>
     <external-files-path name="transfers" path="." />
     <files-path name="internal" path="." />
+    <!-- Shared storage (Download/DeepStellar/…), so finished torrent files can be opened in other apps. -->
+    <external-path name="shared" path="." />
 </paths>

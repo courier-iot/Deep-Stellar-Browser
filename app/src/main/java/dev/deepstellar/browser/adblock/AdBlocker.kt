@@ -20,12 +20,21 @@ import kotlin.random.Random
 object AdBlocker {
     private const val TAG = "AdBlocker"
 
-    enum class Verdict { ALLOW, BLOCK_LIST, BLOCK_USER, BLOCK_LEARNED }
+    enum class Verdict { ALLOW, BLOCK_LIST, BLOCK_RULE, BLOCK_USER, BLOCK_LEARNED }
 
     val LIST_SOURCES = listOf(
         "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",
         "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
     )
+
+    /** Full-syntax rule lists (EasyList format), used when "Advanced filter rules" is on. */
+    val RULE_SOURCES = listOf(
+        "https://easylist.to/easylist/easylist.txt",
+        "https://easylist.to/easylist/easyprivacy.txt",
+    )
+    private val advanced get() = Prefs.raw.getBoolean("adblock_rules", true)
+    private val rulesFile get() = File(appContext.filesDir, "filters_abp.txt")
+    val ruleCount: Int get() = FilterEngine.ruleCount
 
     @Volatile private var listDomains: Set<String> = emptySet()
     @Volatile private var userDomains: Set<String> = emptySet()
@@ -64,6 +73,7 @@ object AdBlocker {
         listDomains = set
         userDomains = if (userFile.exists()) userFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.toSet() else emptySet()
         Log.i(TAG, "Loaded ${set.size} list domains, ${userDomains.size} user domains")
+        if (advanced) FilterEngine.load(rulesFile) else FilterEngine.load(File(appContext.filesDir, "none"))
     }
 
     /** Accepts hosts format, plain domains, and ABP "||domain^" rules. */
@@ -92,7 +102,7 @@ object AdBlocker {
     /**
      * Called from WebView's network thread for every subresource.
      */
-    fun check(url: Uri, pageHost: String?, isMainFrame: Boolean): Verdict {
+    fun check(url: Uri, pageHost: String?, isMainFrame: Boolean, type: String = "other"): Verdict {
         if (!Prefs.adblock || isMainFrame) return Verdict.ALLOW
         val host = url.host?.lowercase() ?: return Verdict.ALLOW
         if (isSiteAllowed(pageHost)) return Verdict.ALLOW
@@ -106,6 +116,15 @@ object AdBlocker {
         if (!::learner.isInitialized) return if (listed) countBlock(Verdict.BLOCK_LIST) else Verdict.ALLOW
 
         val urlStr = url.toString()
+        if (!listed && FilterEngine.ready &&
+            FilterEngine.shouldBlock(urlStr.lowercase(), host, pageHost?.lowercase(), thirdParty, FilterEngine.typeBit(type))
+        ) {
+            if (Prefs.adLearning && Random.nextInt(4) == 0) {
+                learner.train(learner.features(urlStr, host, pageHost, thirdParty), 1f, 0.05f)
+                maybeSave()
+            }
+            return countBlock(Verdict.BLOCK_RULE)
+        }
         if (listed) {
             if (Prefs.adLearning && Random.nextInt(4) == 0) {
                 learner.train(learner.features(urlStr, host, pageHost, thirdParty), 1f, 0.05f)
@@ -187,6 +206,9 @@ object AdBlocker {
         userFile.delete()
     }
 
+    /** Re-reads the lists from disk (after a setting changed). */
+    fun reload() = io.execute { reloadLists() }
+
     fun resetLearning() = io.execute { if (::learner.isInitialized) learner.reset() }
 
     fun saveNow() = io.execute { if (::learner.isInitialized) learner.save() }
@@ -207,8 +229,29 @@ object AdBlocker {
                 anyOk = true
             }.onFailure { Log.w(TAG, "List $src failed: ${it.message}") }
         }
+        // Full-syntax rule lists are kept as downloaded (minus comments and page-element rules).
+        if (advanced) {
+            val rules = StringBuilder()
+            var rulesOk = false
+            for (src in RULE_SOURCES) {
+                runCatching {
+                    val conn = NetUtil.open(src)
+                    conn.connectTimeout = 15_000
+                    conn.readTimeout = 45_000
+                    conn.inputStream.bufferedReader().use { r -> r.lineSequence().forEach { line ->
+                        if (line.isNotEmpty() && line[0] != '!' && line[0] != '[' && !line.contains("##") && !line.contains("#@#") && !line.contains("#?#")) {
+                            rules.append(line).append('\n')
+                        }
+                    } }
+                    conn.disconnect()
+                    rulesOk = true
+                    anyOk = true
+                }.onFailure { Log.w(TAG, "Rules $src failed: ${it.message}") }
+            }
+            if (rulesOk) runCatching { rulesFile.writeText(rules.toString()) }
+        }
         if (anyOk) {
-            runCatching { filtersFile.writeText(sb.toString()) }
+            if (sb.isNotEmpty()) runCatching { filtersFile.writeText(sb.toString()) }
             reloadLists()
         }
         done(anyOk, listDomains.size)

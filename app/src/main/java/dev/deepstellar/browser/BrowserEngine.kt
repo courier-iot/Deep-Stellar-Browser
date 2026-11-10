@@ -45,6 +45,10 @@ interface BrowserHost {
     fun onFileChooser(callback: ValueCallback<Array<Uri>>, params: WebChromeClient.FileChooserParams): Boolean
     fun onHttpsUpgradeFailed(tab: Tab, httpUrl: String)
     fun onRendererGone(tab: Tab)
+    /** A page asks for camera / microphone / location. Call [answer] with the decision. */
+    fun onSitePermission(tab: Tab, siteHost: String?, kinds: List<String>, answer: (Boolean) -> Unit)
+    /** A blob: download finished being read out of the page (or failed). */
+    fun onBlobDownload(tab: Tab, dataUrl: String?, mimeType: String?, error: String?)
 }
 
 object BrowserEngine {
@@ -80,11 +84,12 @@ object BrowserEngine {
     @SuppressLint("SetJavaScriptEnabled")
     fun applySettings(ctx: Context, wv: WebView, tab: Tab) {
         val s = wv.settings
-        s.javaScriptEnabled = Prefs.javascript
+        val builtIn = tab.isBuiltInPage
+        s.javaScriptEnabled = if (builtIn) true else SitePrefs.javascript(tab.pageHost) ?: Prefs.javascript
         s.domStorageEnabled = true // needed by most sites; wiped on exit
         s.allowFileAccess = false
         s.allowContentAccess = false
-        s.setGeolocationEnabled(false)
+        s.setGeolocationEnabled(true) // every request still goes through the per-site permission prompt
         s.mediaPlaybackRequiresUserGesture = true
         s.builtInZoomControls = true
         s.displayZoomControls = false
@@ -95,8 +100,8 @@ object BrowserEngine {
         s.safeBrowsingEnabled = false
         s.useWideViewPort = true
         s.loadWithOverviewMode = true
-        s.userAgentString = userAgentFor(ctx, tab)
-        s.textZoom = Prefs.raw.getInt("text_zoom", 100)
+        s.userAgentString = if (SitePrefs.desktop(tab.pageHost) ?: tab.desktop) desktopUa(ctx) else mobileUa(ctx)
+        s.textZoom = SitePrefs.zoom(tab.pageHost) ?: Prefs.raw.getInt("text_zoom", 100)
         // Ultra-eco: skip images unless the user taps through.
         s.blockNetworkImage = Prefs.cpuMode == 3 && Prefs.raw.getBoolean("ultra_no_images", false)
 
@@ -158,6 +163,67 @@ object BrowserEngine {
             else -> return
         }
         view.evaluateJavascript(js, null)
+    }
+
+    // ---------------------------------------------------------------- privacy scripts
+
+    /** (Re)installs the document-start privacy scripts when the relevant settings changed. */
+    fun applyPageScripts(tab: Tab) {
+        val wv = tab.webView ?: return
+        val sig = PageScripts.signature()
+        if (tab.pageScriptSig == sig) return
+        tab.pageScript?.remove()
+        tab.pageScript = null
+        tab.pageScriptSig = sig
+        val js = PageScripts.documentStart() ?: return
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            runCatching { tab.pageScript = WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
+        }
+    }
+
+    /** Per-site JavaScript, desktop mode and text size. Reloads once if a setting had to change. */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun applySiteOverrides(ctx: Context, view: WebView, tab: Tab, url: String) {
+        val host = Uri.parse(url).host
+        val builtIn = host == ASSET_HOST
+        val s = view.settings
+        val wantJs = if (builtIn) true else SitePrefs.javascript(host) ?: Prefs.javascript
+        val wantUa = if (SitePrefs.desktop(host) ?: tab.desktop) desktopUa(ctx) else mobileUa(ctx)
+        s.textZoom = if (builtIn) 100 else SitePrefs.zoom(host) ?: Prefs.raw.getInt("text_zoom", 100)
+        var changed = false
+        if (s.javaScriptEnabled != wantJs) { s.javaScriptEnabled = wantJs; changed = true }
+        if (s.userAgentString != wantUa) { s.userAgentString = wantUa; changed = true }
+        if (changed && tab.siteFixUrl != url) {
+            tab.siteFixUrl = url
+            view.post { view.reload() }
+        } else if (!changed) {
+            tab.siteFixUrl = null
+        }
+    }
+
+    // ---------------------------------------------------------------- blob: downloads
+
+    private val pendingBlobs = HashMap<String, String?>() // nonce -> mime type
+
+    /** Reads a blob: file out of the page (it only exists inside that page) and hands it to the host. */
+    fun fetchBlob(tab: Tab, blobUrl: String, mimeType: String?, host: BrowserHost) {
+        val wv = tab.webView
+        if (wv == null || !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            host.onBlobDownload(tab, null, mimeType, "This WebView version can't save in-page files")
+            return
+        }
+        val nonce = java.util.UUID.randomUUID().toString()
+        pendingBlobs[nonce] = mimeType
+        val u = org.json.JSONObject.quote(blobUrl)
+        wv.evaluateJavascript(
+            "(function(){var N='" + nonce + "';function send(o){o.n=N;dsBridge.postMessage(JSON.stringify(o));}" +
+            "try{fetch(" + u + ").then(function(r){return r.blob();}).then(function(b){" +
+            "if(b.size>100*1024*1024){send({err:'File is larger than 100 MB'});return;}" +
+            "var fr=new FileReader();fr.onload=function(){send({d:fr.result,t:b.type});};" +
+            "fr.onerror=function(){send({err:'Could not read the file'});};fr.readAsDataURL(b);" +
+            "}).catch(function(e){send({err:String(e)});});}catch(e){send({err:String(e)});}})();",
+            null,
+        )
     }
 
     // ---------------------------------------------------------------- creation
@@ -225,7 +291,8 @@ object BrowserEngine {
                     tab.console.clear()
                     tab.pageHost = uri.host
                 }
-                val verdict = AdBlocker.check(uri, tab.pageHost, request.isForMainFrame)
+                val reqType = RequestLog.guessType(uri, request.requestHeaders?.get("Accept"), request.isForMainFrame)
+                val verdict = AdBlocker.check(uri, tab.pageHost, request.isForMainFrame, reqType)
                 val reqHost = uri.host ?: ""
                 tab.net.add(
                     RequestLog.Entry(
@@ -233,7 +300,7 @@ object BrowserEngine {
                         method = request.method ?: "GET",
                         url = uri.toString().take(600),
                         host = reqHost,
-                        type = RequestLog.guessType(uri, request.requestHeaders?.get("Accept"), request.isForMainFrame),
+                        type = reqType,
                         thirdParty = DomainUtil.isThirdParty(reqHost, tab.pageHost),
                         mainFrame = request.isForMainFrame,
                         verdict = verdict,
@@ -249,6 +316,8 @@ object BrowserEngine {
             override fun onPageStarted(view: WebView, url: String, favicon: Bitmap?) {
                 tab.url = url
                 tab.pageHost = Uri.parse(url).host
+                applySiteOverrides(ctx, view, tab, url)
+                if (tab.pageScript == null) PageScripts.documentStart()?.let { view.evaluateJavascript(it, null) } // old WebView fallback
                 tab.blockedOnPage = 0
                 tab.readerMode = false
                 tab.progress = 0
@@ -264,6 +333,7 @@ object BrowserEngine {
                 tab.url = url
                 tab.progress = 100
                 injectCosmetic(view, tab)
+                if (PageScripts.cookieBanners && !tab.isBuiltInPage) view.evaluateJavascript(PageScripts.COOKIE_BANNERS, null)
                 HistoryStore.record(url, view.title ?: tab.title)
                 host.onTabUpdated(tab)
             }
@@ -333,15 +403,33 @@ object BrowserEngine {
             ): Boolean = host.onFileChooser(filePathCallback, fileChooserParams)
 
             override fun onPermissionRequest(request: android.webkit.PermissionRequest) {
-                // Camera / microphone / MIDI etc. are refused by default.
-                request.deny()
+                // Camera and microphone go through the per-site prompt; everything else (MIDI, DRM ids…) is refused.
+                val wanted = request.resources.filter {
+                    it == android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE || it == android.webkit.PermissionRequest.RESOURCE_AUDIO_CAPTURE
+                }
+                if (wanted.isEmpty()) { request.deny(); return }
+                val kinds = wanted.map {
+                    if (it == android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE) SitePrefs.CAMERA else SitePrefs.MIC
+                }
+                host.onSitePermission(tab, request.origin?.host, kinds) { ok ->
+                    runCatching {
+                        if (ok) {
+                            request.grant(wanted.toTypedArray())
+                            // A call needs direct connections: lift the relay-only rule for this page.
+                            tab.webView?.evaluateJavascript(PageScripts.allowRtcOnce(), null)
+                        } else request.deny()
+                    }
+                }
             }
 
             override fun onGeolocationPermissionsShowPrompt(
                 origin: String?,
                 callback: android.webkit.GeolocationPermissions.Callback?,
             ) {
-                callback?.invoke(origin, false, false)
+                val siteHost = origin?.let { Uri.parse(it).host }
+                host.onSitePermission(tab, siteHost, listOf(SitePrefs.LOCATION)) { ok ->
+                    runCatching { callback?.invoke(origin, ok, false) }
+                }
             }
         }
 
@@ -354,8 +442,25 @@ object BrowserEngine {
             host.onLongPress(tab, r)
         }
 
+        // Channel for blob: downloads. Messages are only accepted for a request the browser itself started.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            runCatching {
+                WebViewCompat.addWebMessageListener(wv, "dsBridge", setOf("*")) { _, message, _, _, _ ->
+                    val o = runCatching { org.json.JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
+                    val nonce = o.optString("n")
+                    if (!pendingBlobs.containsKey(nonce)) return@addWebMessageListener
+                    val mime = pendingBlobs.remove(nonce)
+                    val err = o.optString("err").takeIf { it.isNotEmpty() }
+                    host.onBlobDownload(tab, o.optString("d").takeIf { it.startsWith("data:") }, o.optString("t").ifEmpty { mime }, err)
+                }
+            }
+        }
+
         tab.webView = wv
+        tab.pageScript = null
+        tab.pageScriptSig = null
         applyThrottle(tab)
+        applyPageScripts(tab)
         return wv
     }
 

@@ -21,6 +21,16 @@ object Reader {
         val surface = hex(Ui.color(ctx, R.color.void_surface))
         val stroke = hex(Ui.color(ctx, R.color.void_stroke))
         val size = (18 * Prefs.raw.getInt("reader_size", 100) / 100)
+        val font = when (Prefs.raw.getString("reader_font", "serif")) {
+            "sans" -> "system-ui,Roboto,sans-serif"
+            "mono" -> "ui-monospace,monospace"
+            else -> "Georgia,\"Noto Serif\",serif"
+        }
+        val width = when (Prefs.raw.getString("reader_width", "normal")) {
+            "narrow" -> 540
+            "wide" -> 860
+            else -> 680
+        }
         return """
 (function(){
 try{
@@ -77,7 +87,7 @@ try{
   root.querySelectorAll('h1').forEach(function(h){ if(h.innerText.trim()===title.trim()) h.remove(); });
 
   var css='html,body{background:$bg!important;margin:0}'+
-    'body{color:$text;font:${size}px/1.7 Georgia,"Noto Serif",serif;padding:28px 20px 80px;max-width:680px;margin:0 auto;word-wrap:break-word}'+
+    'body{color:$text;font:${size}px/1.7 $font;padding:28px 20px 80px;max-width:${width}px;margin:0 auto;word-wrap:break-word}'+
     '.ds-site{font:600 11px/1 system-ui,sans-serif;letter-spacing:.25em;text-transform:uppercase;color:$accent2;margin-bottom:14px}'+
     'h1.ds-title{font:300 1.7em/1.25 system-ui,sans-serif;letter-spacing:.01em;color:$text;margin:0 0 10px}'+
     '.ds-meta{font:12px/1 ui-monospace,monospace;color:$dim;margin-bottom:26px;padding-bottom:18px;border-bottom:1px solid $stroke}'+

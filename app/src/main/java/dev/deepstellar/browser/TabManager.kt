@@ -19,6 +19,23 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
 
     var onCurrentChanged: ((Tab) -> Unit)? = null
 
+    /** Recently closed tabs, newest last. Memory only — gone when the browser exits or wipes. */
+    private class Closed(val url: String, val title: String, val state: Bundle?, val desktop: Boolean)
+    private val closedTabs = ArrayDeque<Closed>()
+    val closedCount get() = closedTabs.size
+
+    /** Brings back the most recently closed tab (with its back/forward list). Null if none or the cap is reached. */
+    fun reopenClosed(): Tab? {
+        if (!canOpenMore()) return null
+        val c = closedTabs.removeLastOrNull() ?: return null
+        val tab = Tab(nextId++, c.url, c.desktop)
+        tab.title = c.title
+        tab.savedState = c.state
+        tabs += tab
+        switchTo(tab)
+        return tab
+    }
+
     val count get() = tabs.size
     fun canOpenMore(): Boolean = tabs.size < Prefs.maxTabs
 
@@ -77,6 +94,8 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
         tab.savedState = b
         destroyView(wv)
         tab.throttleScript = null
+        tab.pageScript = null
+        tab.pageScriptSig = null
         tab.webView = null
     }
 
@@ -84,6 +103,11 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
         val idx = tabs.indexOf(tab)
         if (idx < 0) return
         tabs.removeAt(idx)
+        if (!tab.isStartPage && tab.url != "about:blank") {
+            val state = tab.savedState ?: tab.webView?.let { wv -> Bundle().also { b -> runCatching { wv.saveState(b) } } }
+            closedTabs.addLast(Closed(tab.url, tab.title, state, tab.desktop))
+            while (closedTabs.size > 10) closedTabs.removeFirst()
+        }
         tab.webView?.let { destroyView(it) }
         tab.webView = null
         tab.savedState = null
@@ -143,6 +167,7 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
             t.webView = null
         }
         tabs.clear()
+        closedTabs.clear()
         current = null
     }
 

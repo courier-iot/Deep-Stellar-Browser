@@ -56,6 +56,8 @@ object Prefs {
             "startpage" -> "https://www.startpage.com/do/search?q=$q"
             "mojeek" -> "https://www.mojeek.com/search?q=$q"
             "searx" -> "$searxUrl/search?q=$q"
+            "custom" -> (sp.getString("custom_search_url", "")?.takeIf { it.contains("%s") && it.startsWith("http") }
+                ?.replace("%s", q)) ?: "https://duckduckgo.com/?q=$q&kp=-2&kl=wt-wt"
             else -> "https://duckduckgo.com/?q=$q&kp=-2&kl=wt-wt"
         }
     }

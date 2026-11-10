@@ -23,6 +23,7 @@ class RequestLog {
         val reason: String get() = when (verdict) {
             AdBlocker.Verdict.ALLOW -> "allowed"
             AdBlocker.Verdict.BLOCK_LIST -> "filter list"
+            AdBlocker.Verdict.BLOCK_RULE -> "filter rule"
             AdBlocker.Verdict.BLOCK_USER -> "your block list"
             AdBlocker.Verdict.BLOCK_LEARNED -> "learning model"
         }

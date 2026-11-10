@@ -16,7 +16,9 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import android.view.GestureDetector
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -42,6 +44,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.widget.ImageViewCompat
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.webkit.ProxyConfig
 import androidx.webkit.ProxyController
 import androidx.webkit.WebViewFeature
@@ -99,6 +102,31 @@ class MainActivity : AppCompatActivity(), BrowserHost {
 
     private val notifPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private lateinit var swipe: SwipeRefreshLayout
+    private var barsAtBottom: Boolean? = null
+
+    // Camera / microphone / location for a site: the Android permission step.
+    private var pendingSiteAnswer: ((Boolean) -> Unit)? = null
+    private var pendingSiteAnyIsEnough = false
+    private val sitePermLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        val ok = if (pendingSiteAnyIsEnough) res.values.any { it } else res.values.all { it }
+        pendingSiteAnswer?.invoke(ok)
+        pendingSiteAnswer = null
+        if (!ok) toast("Android permission denied, so the site can't use it")
+    }
+
+    // "Ask where to save each download"
+    private class PendingSave(val url: String, val ua: String, val cd: String?, val mime: String?, val referer: String?, val name: String)
+    private var pendingSave: PendingSave? = null
+    private val saveAsLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("*/*")) { uri ->
+        val p = pendingSave
+        pendingSave = null
+        if (uri != null && p != null) {
+            val item = DownloadEngine.enqueue(this, p.url, p.ua, p.cd, p.mime, p.referer, destUri = uri, fileName = p.name)
+            snackTransfers("Downloading ${item.fileName}")
+        }
+    }
+
     // ================================================================ lifecycle
 
     private var appliedTheme = ""
@@ -122,6 +150,17 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         findInput = findViewById(R.id.findInput)
         findCount = findViewById(R.id.findCount)
         wireFindBar()
+
+        swipe = findViewById(R.id.swipe)
+        swipe.setColorSchemeColors(Ui.color(this, R.color.nebula_violet), Ui.color(this, R.color.cosmic_blue))
+        swipe.setProgressBackgroundColorSchemeColor(Ui.color(this, R.color.void_surface_2))
+        // Only pull-to-refresh when the page itself is scrolled to the top.
+        swipe.setOnChildScrollUpCallback { _, _ -> (tabs.current?.webView?.scrollY ?: 0) > 0 }
+        swipe.setOnRefreshListener {
+            tabs.current?.webView?.reload()
+            swipe.postDelayed({ swipe.isRefreshing = false }, 700)
+        }
+        arrangeBars()
 
         val chrome = findViewById<View>(R.id.chrome)
         ViewCompat.setOnApplyWindowInsetsListener(chrome) { v, insets ->
@@ -149,6 +188,43 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             tabs.open(BrowserEngine.startPageUrl())
         }
         ResourceGovernor.attach(tabs)
+
+        // Unfinished downloads and torrents from last time (if "remember" is on).
+        DownloadEngine.restore(this)
+        TorrentEngine.restore(this)
+    }
+
+    /** Address bar at the top (default) or at the bottom, above the navigation buttons. */
+    private fun arrangeBars() {
+        val bottom = Prefs.raw.getBoolean("bar_bottom", false)
+        if (barsAtBottom == bottom) return
+        barsAtBottom = bottom
+        val chrome = findViewById<LinearLayout>(R.id.chrome)
+        val top = findViewById<View>(R.id.topBar)
+        val nav = findViewById<View>(R.id.bottomBar)
+        val order = if (bottom) listOf(swipe, suggestScroll, findBar, progress, top, nav)
+        else listOf(top, findBar, progress, suggestScroll, swipe, nav)
+        chrome.removeAllViews()
+        order.forEach { chrome.addView(it) }
+    }
+
+    private fun switchTabBy(delta: Int) {
+        val list = tabs.tabs
+        if (list.size < 2) return
+        val i = list.indexOf(tabs.current)
+        tabs.switchTo(list[((i + delta) % list.size + list.size) % list.size])
+    }
+
+    private fun closeTab(t: Tab) {
+        val restorable = !t.isStartPage
+        tabs.close(t)
+        updateChrome()
+        if (restorable) {
+            Snackbar.make(webContainer, "Tab closed", Snackbar.LENGTH_LONG)
+                .setAction("Undo") { if (tabs.reopenClosed() == null) toast("Tab limit reached") else updateChrome() }
+                .setActionTextColor(Ui.color(this, R.color.cosmic_blue))
+                .show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -166,6 +242,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             return
         }
         applyGlobalSettings()
+        arrangeBars()
         tabs.current?.webView?.onResume()
         // Start-page sections or shortcuts changed in Settings → refresh open start pages.
         val sig = StartShortcuts.json()
@@ -255,6 +332,22 @@ class MainActivity : AppCompatActivity(), BrowserHost {
                 if (urlBar.hasFocus()) showSuggestions(s?.toString().orEmpty())
             }
         })
+
+        // Swipe left / right on the address bar to move between tabs.
+        val swipeMin = Ui.dp(this, 56)
+        val gestures = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(e1: MotionEvent?, e2: MotionEvent, velocityX: Float, velocityY: Float): Boolean {
+                if (urlBar.hasFocus() || e1 == null) return false
+                val dx = e2.x - e1.x
+                if (kotlin.math.abs(dx) < swipeMin || kotlin.math.abs(velocityX) < kotlin.math.abs(velocityY)) return false
+                switchTabBy(if (dx < 0) 1 else -1)
+                return true
+            }
+        })
+        urlBar.setOnTouchListener { _, ev ->
+            val flung = gestures.onTouchEvent(ev)
+            flung && ev.actionMasked == MotionEvent.ACTION_UP // swallow the tap that would otherwise open the keyboard
+        }
 
         findViewById<View>(R.id.btnBack).setOnClickListener { tabs.current?.webView?.takeIf { it.canGoBack() }?.goBack() }
         findViewById<View>(R.id.btnForward).setOnClickListener { tabs.current?.webView?.takeIf { it.canGoForward() }?.goForward() }
@@ -389,7 +482,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         when {
             text.startsWith("magnet:", ignoreCase = true) -> onMagnet(text)
             looksLikeUrl(text) -> load(if (text.contains("://")) text else "https://$text")
-            else -> load(Prefs.searchUrl(text))
+            else -> load(Bangs.resolve(text) ?: Prefs.searchUrl(text))
         }
     }
 
@@ -486,10 +579,12 @@ class MainActivity : AppCompatActivity(), BrowserHost {
                 t.webView?.let { wv ->
                     BrowserEngine.applySettings(this, wv, t)
                     BrowserEngine.applyThrottle(t)
+                    BrowserEngine.applyPageScripts(t)
                 }
             }
         }
         TorrentEngine.applySettings()
+        if (::swipe.isInitialized) swipe.isEnabled = Prefs.raw.getBoolean("pull_refresh", true)
     }
 
     // ================================================================ sheets
@@ -510,7 +605,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         list.addView(Ui.header(this, "Tabs · ${tabs.count} / $cap · ${tabs.liveCount()} in memory"))
         tabs.tabs.toList().forEach { t ->
             val close = Ui.iconButton(this, R.drawable.ic_close, "Close tab") {
-                tabs.close(t); dlg.dismiss(); updateChrome()
+                dlg.dismiss(); closeTab(t)
             }
             val sub = buildString {
                 append(if (t.isStartPage) "start page" else t.url.removePrefix("https://"))
@@ -536,6 +631,15 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             list.addView(Ui.row(this, title, sub, onClick = { dlg.dismiss(); action() }))
         }
         item("New tab") { newTab() }
+        if (tabs.closedCount > 0) {
+            item("Reopen closed tab", "${tabs.closedCount} can be brought back") {
+                if (tabs.reopenClosed() == null) toast("Tab limit reached") else updateChrome()
+            }
+        }
+        if (t != null && !t.isBuiltInPage) {
+            item("Site settings", "JavaScript, text size, camera, microphone, location for ${SitePrefs.site(t.pageHost) ?: "this site"}") { showSiteSheet(t) }
+            item("Print / save as PDF") { printPage(t) }
+        }
         if (t != null && !t.isStartPage) {
             item("Find in page") { openFind() }
             item(if (t.readerMode) "Exit reader mode" else "Reader mode", "Just the article, in your theme") { toggleReader(t) }
@@ -553,6 +657,8 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         }
         if (t != null) {
             item("Desktop site", if (t.desktop) "On for this tab" else "Off for this tab") {
+                // If this site has its own desktop setting, keep the two in step.
+                if (SitePrefs.desktop(t.pageHost) != null) SitePrefs.setDesktop(t.pageHost, !t.desktop)
                 BrowserEngine.setDesktop(this, t, !t.desktop)
             }
         }
@@ -695,7 +801,9 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             url.substringBefore('?').endsWith(".torrent", ignoreCase = true) ||
             (contentDisposition?.contains(".torrent", ignoreCase = true) == true)
         if (url.startsWith("blob:")) {
-            toast("This site builds the file in-page (blob:), which can't be downloaded yet")
+            // The file only exists inside the page: read it out, then save it like any download.
+            toast("Preparing file…")
+            BrowserEngine.fetchBlob(tab, url, mimeType, this)
             return
         }
         askNotificationsOnce()
@@ -703,10 +811,160 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             val item = TorrentEngine.addTorrentUrl(this, url, userAgent)
             snackTransfers("Torrent added: ${item.name}")
         } else {
-            val item = DownloadEngine.enqueue(this, url, userAgent, contentDisposition, mimeType, tab.url)
-            val size = if (length > 0) " (${Format.bytes(length)})" else ""
-            snackTransfers("Downloading ${item.fileName}$size")
+            beginDownload(tab.url, url, userAgent, contentDisposition, mimeType, length, null)
         }
+    }
+
+    private fun beginDownload(referer: String?, url: String, userAgent: String, contentDisposition: String?, mimeType: String?, length: Long, name: String?) {
+        if (Prefs.raw.getBoolean("download_ask", false)) {
+            val guessed = name ?: android.webkit.URLUtil.guessFileName(url, contentDisposition, mimeType)
+            pendingSave = PendingSave(url, userAgent, contentDisposition, mimeType, referer, guessed)
+            AppLock.expectExternal()
+            saveAsLauncher.launch(guessed)
+            return
+        }
+        val item = DownloadEngine.enqueue(this, url, userAgent, contentDisposition, mimeType, referer, fileName = name)
+        val size = if (length > 0) " (${Format.bytes(length)})" else ""
+        snackTransfers("Downloading ${item.fileName}$size")
+    }
+
+    override fun onBlobDownload(tab: Tab, dataUrl: String?, mimeType: String?, error: String?) {
+        if (dataUrl == null || error != null) {
+            toast("Couldn't save this file: ${error ?: "the page didn't hand it over"}")
+            return
+        }
+        askNotificationsOnce()
+        val name = android.webkit.URLUtil.guessFileName("https://local/download", null, mimeType)
+        beginDownload(tab.url, dataUrl, BrowserEngine.userAgentFor(this, tab), null, mimeType, -1, name)
+    }
+
+    // ================================================================ site permissions
+
+    override fun onSitePermission(tab: Tab, siteHost: String?, kinds: List<String>, answer: (Boolean) -> Unit) {
+        val site = SitePrefs.site(siteHost)
+        if (site == null || isFinishing) { answer(false); return }
+        val states = kinds.map { SitePrefs.permission(site, it) }
+        if (states.any { it == SitePrefs.BLOCK }) { answer(false); return }
+        if (states.all { it == SitePrefs.ALLOW }) { withAndroidPermissions(kinds, answer); return }
+
+        val what = kinds.joinToString(" and ") {
+            when (it) { SitePrefs.CAMERA -> "camera"; SitePrefs.MIC -> "microphone"; else -> "location" }
+        }
+        val remember = android.widget.CheckBox(this).apply { text = "Remember for $site" }
+        val box = LinearLayout(this).apply {
+            setPadding(Ui.dp(context, 20), Ui.dp(context, 4), Ui.dp(context, 20), 0)
+            addView(remember)
+        }
+        var answered = false
+        MaterialAlertDialogBuilder(this)
+            .setTitle("$site wants to use your $what")
+            .setView(box)
+            .setPositiveButton("Allow") { _, _ ->
+                answered = true
+                if (remember.isChecked) {
+                    kinds.forEach { SitePrefs.setPermission(site, it, SitePrefs.ALLOW) }
+                    tabs.tabs.forEach { BrowserEngine.applyPageScripts(it) }
+                }
+                withAndroidPermissions(kinds, answer)
+            }
+            .setNegativeButton("Block") { _, _ ->
+                answered = true
+                if (remember.isChecked) kinds.forEach { SitePrefs.setPermission(site, it, SitePrefs.BLOCK) }
+                answer(false)
+            }
+            .setOnDismissListener { if (!answered) answer(false) }
+            .show()
+    }
+
+    /** The site is allowed; now make sure Android has given the browser itself the permission. */
+    private fun withAndroidPermissions(kinds: List<String>, answer: (Boolean) -> Unit) {
+        val needed = kinds.flatMap {
+            when (it) {
+                SitePrefs.CAMERA -> listOf(Manifest.permission.CAMERA)
+                SitePrefs.MIC -> listOf(Manifest.permission.RECORD_AUDIO)
+                else -> listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+        }
+        val missing = needed.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        val locationOnly = kinds.all { it == SitePrefs.LOCATION }
+        if (missing.isEmpty() || (locationOnly && missing.size < needed.size)) { answer(true); return }
+        pendingSiteAnswer?.invoke(false)
+        pendingSiteAnswer = answer
+        pendingSiteAnyIsEnough = locationOnly
+        AppLock.expectExternal()
+        sitePermLauncher.launch(missing.toTypedArray())
+    }
+
+    private fun showSiteSheet(tab: Tab) {
+        val host = tab.pageHost
+        val site = SitePrefs.site(host) ?: return
+        sheet { list, dlg ->
+            list.addView(Ui.header(this, site))
+            fun again() { dlg.dismiss(); showSiteSheet(tab) }
+            fun reload() { tab.webView?.let { BrowserEngine.applySettings(this, it, tab); it.reload() } }
+            fun row(title: String, sub: String?, action: () -> Unit) = list.addView(Ui.row(this, title, sub, onClick = action))
+
+            // JavaScript: follow global → off → on → follow global
+            val js = SitePrefs.javascript(host)
+            row("JavaScript: " + when (js) { null -> "default (${if (Prefs.javascript) "on" else "off"})"; true -> "always on here"; false -> "off here" },
+                "Tap to change. Off stops most tracking scripts but breaks many sites.") {
+                SitePrefs.setJavascript(host, when (js) { null -> false; false -> true; true -> null })
+                reload(); again()
+            }
+
+            val desk = SitePrefs.desktop(host)
+            row("Desktop site: " + when (desk) { null -> "follow the tab"; true -> "always here"; false -> "never here" }, "Tap to change") {
+                SitePrefs.setDesktop(host, when (desk) { null -> true; true -> false; false -> null })
+                reload(); again()
+            }
+
+            // Text size
+            val base = Prefs.raw.getInt("text_zoom", 100)
+            val zoom = SitePrefs.zoom(host)
+            fun setZoom(v: Int?) {
+                SitePrefs.setZoom(host, v?.coerceIn(50, 300))
+                tab.webView?.settings?.textZoom = SitePrefs.zoom(host) ?: base
+                again()
+            }
+            val minus = Ui.iconButton(this, R.drawable.ic_remove, "Smaller text") { setZoom((zoom ?: base) - 10) }
+            val plus = Ui.iconButton(this, R.drawable.ic_add, "Larger text") { setZoom((zoom ?: base) + 10) }
+            list.addView(Ui.row(this, "Text size: ${zoom ?: base}%" + if (zoom == null) " (default)" else " here",
+                "− and + change it for this site · tap to reset", onClick = { setZoom(null) }, trailing = listOf(minus, plus)))
+
+            // Permissions: ask → allow → block → ask
+            fun perm(kind: String, label: String) {
+                val v = SitePrefs.permission(host, kind)
+                row("$label: " + when (v) { SitePrefs.ALLOW -> "allowed"; SitePrefs.BLOCK -> "blocked"; else -> "ask each time" }, "Tap to change") {
+                    SitePrefs.setPermission(host, kind, when (v) { SitePrefs.ASK -> SitePrefs.ALLOW; SitePrefs.ALLOW -> SitePrefs.BLOCK; else -> SitePrefs.ASK })
+                    tabs.tabs.forEach { BrowserEngine.applyPageScripts(it) }
+                    again()
+                }
+            }
+            perm(SitePrefs.CAMERA, "Camera")
+            perm(SitePrefs.MIC, "Microphone")
+            perm(SitePrefs.LOCATION, "Location")
+
+            val shieldOff = AdBlocker.isSiteAllowed(host)
+            row(if (shieldOff) "Ad shield: off here" else "Ad shield: on", "Tap to change") {
+                AdBlocker.toggleSiteAllowed(host ?: site)
+                updateChrome(); tab.webView?.reload(); again()
+            }
+            row("Reset this site's settings", null) {
+                SitePrefs.clear(site)
+                tabs.tabs.forEach { BrowserEngine.applyPageScripts(it) }
+                reload(); dlg.dismiss()
+            }
+        }
+    }
+
+    private fun printPage(tab: Tab) {
+        val wv = tab.webView ?: return
+        val pm = getSystemService(android.print.PrintManager::class.java)
+        if (pm == null) { toast("Printing isn't available on this device"); return }
+        val name = tab.title.ifBlank { "Deep Stellar page" }.take(60)
+        AppLock.expectExternal()
+        // "Save as PDF" is one of the printers Android offers on the next screen.
+        pm.print(name, wv.createPrintDocumentAdapter(name), android.print.PrintAttributes.Builder().build())
     }
 
     override fun onLongPress(tab: Tab, result: WebView.HitTestResult): Boolean {
@@ -847,7 +1105,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         if (urlBar.hasFocus()) { urlBar.clearFocus(); hideKeyboard(); return }
         val wv = tabs.current?.webView
         if (wv != null && wv.canGoBack()) { wv.goBack(); return }
-        if (tabs.count > 1) { tabs.current?.let { tabs.close(it) }; updateChrome(); return }
+        if (tabs.count > 1) { tabs.current?.let { closeTab(it) }; return }
         val now = System.currentTimeMillis()
         if (now - lastBackPress < 2000) exitAndWipe()
         else { lastBackPress = now; toast("Press back again to exit & wipe") }

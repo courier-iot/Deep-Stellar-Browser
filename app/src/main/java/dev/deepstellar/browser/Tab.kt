@@ -22,6 +22,11 @@ class Tab(val id: Long, var url: String, var desktop: Boolean) {
     /** Host the user agreed to load over plain HTTP despite HTTPS-only mode. */
     var httpAllowedHost: String? = null
     var throttleScript: ScriptHandler? = null
+    /** Privacy scripts (WebRTC, fingerprint, referrer) installed in this tab, and what they were built from. */
+    var pageScript: ScriptHandler? = null
+    var pageScriptSig: String? = null
+    /** Last address a per-site setting forced a reload for (stops reload loops). */
+    var siteFixUrl: String? = null
     /** Last URL the tracker cleaner produced (guards against redirect loops). */
     var lastCleaned: String? = null
     /** Under-the-hood logs for the current page (memory only). */

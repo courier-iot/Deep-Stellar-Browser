@@ -14,8 +14,8 @@ A private, deep-space themed Android browser. Free and open source, no telemetry
 | **CPU limiter** | Full power · Balanced · Eco · Ultra-eco. Caps how many background tabs stay awake, throttles page animation/timers (30 or 15 fps), and slows torrents when the app runs hot. |
 | **RAM limiter** | 256 MB → 2 GB or Unlimited. Background tabs go to sleep (history kept in RAM, page reloads when you return) when the estimate exceeds the budget or Android is low on memory. |
 | **Self-learning ad shield** | Filter lists + a small on-device learning model that spots ads no list has seen. Long-press an ad → **Block as ad** to teach it. Per-site "allow" for broken pages. The model stores only hashed numbers, never URLs. |
-| **Downloads** | Built-in manager with pause / resume / cancel. Saved to `Download/DeepStellar`. |
-| **Torrents** | Built-in BitTorrent client (libtorrent). Magnet links and `.torrent` files, speed limits, optional seeding. Saved to `Download/DeepStellar/Torrents`. |
+| **Downloads** | Pause / resume / cancel, survives a restart (comes back paused), optional *ask where to save*, and files a page builds itself (`blob:`) can be saved too. Finished downloads are never recorded. |
+| **Torrents** | Magnet links and `.torrent` files. Unfinished torrents resume after a restart. Pick which files to download, download in order to play video early, open finished files. Queue (how many at once), Wi-Fi-only and VPN-only rules, seeding limits by ratio or time, trackers view/add, save to internal storage or SD card, delete files on remove. |
 | **Bookmarks** | Import/export in the standard bookmark HTML format — works with Firefox, Chrome, Brave, Edge, Tor Browser, DuckDuckGo, Vivaldi, Safari. |
 | **Address bar suggestions** | Matches your bookmarks (★) and, if history is on, your history (◷) as you type, ranked by how well it matches, how often you visit and how recently. Matched on the phone — nothing you type goes to a search engine until you press Go. Tap ↖ to copy a suggestion into the bar and edit it. |
 | **Clean links** | Strips tracking tags (`utm_*`, `fbclid`, `gclid`, `msclkid` …) and unwraps Google / Facebook / DuckDuckGo / YouTube / Reddit click-through redirects before a page loads. |
@@ -31,6 +31,14 @@ A private, deep-space themed Android browser. Free and open source, no telemetry
 | **Panic wipe tile** | A Quick Settings button: stops downloads and torrents, wipes cookies, cache and site data (optionally history), removes the app from Recents and ends it — works from the lock screen and skips the app lock. Saved downloads stay. |
 | **Filter list updates** | Manual, or automatic weekly / every 2 weeks / monthly (Wi-Fi only by default). Uses your Tor setting. |
 | **Crash reports** | Saved only on the phone, with web addresses blanked out. View, share or delete them in Settings — nothing is ever sent automatically. |
+| **Search shortcuts** | `!gh rust`, `!w black hole`, `!aw example.com` (Wayback Machine) and more, plus your own — resolved on the phone. Optional: keywords without the `!`. Custom search engine address too. |
+| **Site settings** | Per site: camera, microphone and location (ask / allow / block), JavaScript, desktop mode, text size, ad shield. |
+| **WebRTC IP protection** | Video-call tech normally reveals your IP address even behind Tor or a VPN. By default sites may only connect through a relay, so they never see it; sites you allow camera/mic for can connect directly. |
+| **Fingerprint resistance** | Canvas and audio readouts get per-session noise, graphics chip and device details are standardised. Partial — WebView limits how far this can go. |
+| **Cookie banners** | Taps Reject where the banner offers it, hides it otherwise. Never taps Accept. |
+| **Advanced filter rules** | Full EasyList + EasyPrivacy rules (paths, wildcards, third-party, per-domain, exceptions), so ads served from a site's own domain are caught too. |
+| **Tabs QoL** | Undo close tab (and reopen the last 10), swipe the address bar to switch tabs, pull to refresh, address bar at the bottom option. |
+| **Print / PDF** | Menu → Print / save as PDF. |
 | **Desktop mode** | Per tab, from the menu. Or on by default in Settings. |
 
 ## Build it (GitHub only, no Android Studio)
@@ -94,6 +102,10 @@ app/src/main/java/dev/deepstellar/browser/
   ui/                    settings, bookmarks, transfers screens
 app/src/main/assets/start.html   the starfield start page
 ```
+
+## Verifying a release
+
+Each GitHub Release lists the APK's SHA-256 and the signing certificate's SHA-256, plus a `SHA256SUMS.txt`. The certificate is the same for every release, so `keytool -printcert -jarfile DeepStellar-<ver>-release.apk` should always show the same SHA-256. Builds also refuse to run with an unofficial Gradle wrapper.
 
 ## Contributing
 

@@ -7,6 +7,7 @@
         <item>Startpage</item>
         <item>Mojeek</item>
         <item>SearXNG (your instance)</item>
+        <item>Custom address</item>
     </string-array>
     <string-array name="engine_values">
         <item>ddg</item>
@@ -15,6 +16,7 @@
         <item>startpage</item>
         <item>mojeek</item>
         <item>searx</item>
+        <item>custom</item>
     </string-array>
     <string-array name="history_days_names">
         <item>1 day</item>
@@ -87,5 +89,75 @@
         <item>60</item>
         <item>300</item>
         <item>900</item>
+    </string-array>
+    <string-array name="webrtc_names">
+        <item>Relay only — sites can&apos;t see your IP address (recommended)</item>
+        <item>Off — no WebRTC at all (breaks video calls)</item>
+        <item>Allow — no protection</item>
+    </string-array>
+    <string-array name="webrtc_values">
+        <item>relay</item>
+        <item>off</item>
+        <item>allow</item>
+    </string-array>
+    <string-array name="reader_font_names">
+        <item>Serif</item>
+        <item>Sans-serif</item>
+        <item>Monospace</item>
+    </string-array>
+    <string-array name="reader_font_values">
+        <item>serif</item>
+        <item>sans</item>
+        <item>mono</item>
+    </string-array>
+    <string-array name="reader_width_names">
+        <item>Narrow</item>
+        <item>Normal</item>
+        <item>Wide</item>
+    </string-array>
+    <string-array name="reader_width_values">
+        <item>narrow</item>
+        <item>normal</item>
+        <item>wide</item>
+    </string-array>
+    <string-array name="seed_ratio_names">
+        <item>No limit</item>
+        <item>1.0 — uploaded as much as downloaded</item>
+        <item>2.0</item>
+        <item>3.0</item>
+    </string-array>
+    <string-array name="seed_ratio_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+    </string-array>
+    <string-array name="seed_time_names">
+        <item>No limit</item>
+        <item>30 minutes</item>
+        <item>1 hour</item>
+        <item>4 hours</item>
+        <item>1 day</item>
+    </string-array>
+    <string-array name="seed_time_values">
+        <item>0</item>
+        <item>30</item>
+        <item>60</item>
+        <item>240</item>
+        <item>1440</item>
+    </string-array>
+    <string-array name="torrent_active_names">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>5</item>
+        <item>No limit</item>
+    </string-array>
+    <string-array name="torrent_active_values">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>5</item>
+        <item>0</item>
     </string-array>
 </resources>

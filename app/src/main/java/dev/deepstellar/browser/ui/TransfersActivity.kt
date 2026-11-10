@@ -82,11 +82,11 @@ class TransfersActivity : AppCompatActivity() {
         shownKeys = dls.map { "d${it.id}" } + trs.map { "t${it.id}" }
 
         list.addView(Ui.header(this, "Downloads"))
-        if (dls.isEmpty()) list.addView(Ui.row(this, "No downloads this session", "Files are saved to Download/DeepStellar. This list is never stored."))
+        if (dls.isEmpty()) list.addView(Ui.row(this, "No downloads", "Files are saved to Download/DeepStellar. Finished downloads are never recorded; unfinished ones can be resumed after a restart."))
         dls.forEach { addDownload(it) }
 
         list.addView(Ui.header(this, "Torrents"))
-        if (trs.isEmpty()) list.addView(Ui.row(this, "No torrents", "Tap a magnet link, or use the menu ⋮ to add one. Saved to Download/DeepStellar/Torrents."))
+        if (trs.isEmpty()) list.addView(Ui.row(this, "No torrents", "Tap a magnet link, or use the menu ⋮ to add one. Tap Details on a torrent to pick files or play while downloading."))
         trs.forEach { addTorrent(it) }
     }
 
@@ -178,6 +178,8 @@ class TransfersActivity : AppCompatActivity() {
         val actions = LinearLayout(this)
         card.addView(actions)
         var lastPaused: Boolean? = null
+        val details = { startActivity(Intent(this, TorrentDetailActivity::class.java).putExtra(TorrentDetailActivity.EXTRA_ID, t.id)) }
+        card.setOnClickListener { details() }
 
         val bind: () -> Unit = {
             title.text = t.name
@@ -189,8 +191,8 @@ class TransfersActivity : AppCompatActivity() {
                 lastPaused = t.paused
                 actions.removeAllViews()
                 actions.addView(
-                    if (t.paused) actionRow("Resume" to { TorrentEngine.resume(t) }, "Remove" to { TorrentEngine.remove(t) }, "Where?" to { where(t) })
-                    else actionRow("Pause" to { TorrentEngine.pause(t) }, "Remove" to { TorrentEngine.remove(t) }, "Where?" to { where(t) })
+                    if (t.paused) actionRow("Resume" to { TorrentEngine.resume(t) }, "Details" to details, "Remove" to { confirmRemove(t) })
+                    else actionRow("Pause" to { TorrentEngine.pause(t) }, "Details" to details, "Remove" to { confirmRemove(t) })
                 )
             }
         }
@@ -208,11 +210,13 @@ class TransfersActivity : AppCompatActivity() {
         }
     }
 
-    private fun where(t: TorrentEngine.Item) {
+    private fun confirmRemove(t: TorrentEngine.Item) {
         MaterialAlertDialogBuilder(this)
-            .setTitle(t.name)
-            .setMessage("Saved in:\n${t.saveDir?.absolutePath ?: "(waiting for metadata)"}\n\nRemoving a torrent here keeps the files already downloaded.")
-            .setPositiveButton("OK", null)
+            .setTitle("Remove torrent?")
+            .setMessage(t.name)
+            .setPositiveButton("Remove, keep files") { _, _ -> TorrentEngine.remove(t) }
+            .setNeutralButton("Remove and delete files") { _, _ -> TorrentEngine.remove(t, deleteFiles = true) }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

@@ -73,6 +73,30 @@ Run through this on a real phone before tagging a release (two different phones/
 - [ ] Open a magnet link (e.g. a Linux ISO) → metadata found, progress moves
 - [ ] Notification shows while transfers run; disappears when done
 
+## 9b. Torrents & downloads (advanced)
+- [ ] Add a multi-file torrent paused → Details → untick some files → resume: only ticked files download
+- [ ] Details → Download in order on a video → tap the file at ~5% → it plays
+- [ ] Close the app (not panic) mid-torrent and mid-download → reopen → both are back; download is paused and resumes
+- [ ] Settings: torrents on Wi-Fi only → switch to mobile data → "Waiting for Wi-Fi"
+- [ ] VPN only with VPN off → "Waiting for VPN"
+- [ ] Downloading at once = 1 with two torrents → second shows "Queued"
+- [ ] Remove → "delete files" removes them from storage
+- [ ] Ask where to save → save dialog appears, file lands there
+- [ ] A site that generates a file (e.g. export to CSV in a web app) → blob download saves
+
+## 9c. Privacy extras
+- [ ] https://browserleaks.com/webrtc → no local/public IP shown (relay mode)
+- [ ] A video call site (e.g. meet.jit.si) → asks for camera/mic → Allow → call works
+- [ ] Site settings: block camera for that site → it can't ask again; reset brings the prompt back
+- [ ] Site settings: JavaScript off for a site → page reloads without JS; other sites unaffected
+- [ ] A site with a cookie banner (most news sites in the EU) → banner gone, page scrolls
+- [ ] Settings → Update filter lists → summary shows "+ N rules"
+- [ ] `!gh deep stellar` and `!w nebula` go to GitHub / Wikipedia
+- [ ] Close a tab → Undo in the snackbar brings it back with its back history
+- [ ] Swipe the address bar left/right → switches tabs; pull down at top → reloads
+- [ ] Address bar at the bottom → bars move; still usable with the keyboard open
+- [ ] Menu → Print / save as PDF → PDF saved
+
 ## 10. QR
 - [ ] Menu → QR code for this page → another phone's camera opens it
 - [ ] Scan: tap-to-focus ring appears and focuses; pinch + slider zoom; torch

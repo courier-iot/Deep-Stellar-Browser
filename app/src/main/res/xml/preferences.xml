@@ -23,6 +23,31 @@
             android:defaultValue="https://searx.be"
             app:useSimpleSummaryProvider="true"
             app:iconSpaceReserved="false" />
+        <EditTextPreference
+            android:key="custom_search_url"
+            android:title="Custom search address (use %s for the words)"
+            android:defaultValue=""
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="bangs_enabled"
+            android:title="Search shortcuts (bangs)"
+            android:summary="!gh rust searches GitHub, !w black hole Wikipedia, !aw example.com the Wayback Machine. Worked out on the phone."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="bangs_bare"
+            android:title="Shortcuts without the !"
+            android:summary="gh rust works too (keywords of 2+ letters). Off by default so ordinary searches aren&apos;t hijacked."
+            android:defaultValue="false"
+            android:dependency="bangs_enabled"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="bangs_manage"
+            android:title="Your shortcuts"
+            android:summary="See the built-in ones and add your own"
+            android:dependency="bangs_enabled"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Tabs" app:iconSpaceReserved="false">
@@ -40,6 +65,17 @@
             android:title="Desktop site by default"
             android:summary="New tabs request the desktop version of pages"
             android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="bar_bottom"
+            android:title="Address bar at the bottom"
+            android:summary="Easier to reach with one hand"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="pull_refresh"
+            android:title="Pull down to reload"
+            android:defaultValue="true"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
@@ -121,6 +157,19 @@
             android:key="clear_allowed"
             android:title="Clear allowed sites"
             app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="adblock_rules"
+            android:title="Advanced filter rules"
+            android:summary="EasyList and EasyPrivacy in full, which catches ads served from a site&apos;s own domain. Downloaded with Update filter lists."
+            android:defaultValue="true"
+            android:dependency="adblock_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="cookie_banners"
+            android:title="Deal with cookie banners"
+            android:summary="Taps Reject when a banner offers it, hides the banner otherwise. Never taps Accept."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Privacy" app:iconSpaceReserved="false">
@@ -151,6 +200,31 @@
             android:title="JavaScript"
             android:summary="Turning this off breaks many sites but removes most tracking scripts"
             android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="webrtc_mode"
+            android:title="WebRTC IP protection"
+            android:defaultValue="relay"
+            android:entries="@array/webrtc_names"
+            android:entryValues="@array/webrtc_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="site_settings"
+            android:title="Site settings"
+            android:summary="Per-site camera, microphone, location, JavaScript, text size"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="fp_resist"
+            android:title="Fingerprint resistance"
+            android:summary="Adds noise to canvas and audio readouts and reports common device values. Partial: sites can still tell browsers apart in other ways."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="referrer_trim"
+            android:title="Hide the page you came from"
+            android:summary="Other sites get no referrer at all. Off by default: some sites refuse images or logins without one."
+            android:defaultValue="false"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:key="app_lock"
@@ -297,9 +371,54 @@
             android:summary="Ask pages to render dark (Android 13+)"
             android:defaultValue="false"
             app:iconSpaceReserved="false" />
+        <SeekBarPreference
+            android:key="text_zoom"
+            android:title="Text size on websites (%)"
+            android:defaultValue="100"
+            android:max="200"
+            app:min="50"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="reader_font"
+            android:title="Reader mode font"
+            android:defaultValue="serif"
+            android:entries="@array/reader_font_names"
+            android:entryValues="@array/reader_font_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SeekBarPreference
+            android:key="reader_size"
+            android:title="Reader mode text size (%)"
+            android:defaultValue="100"
+            android:max="200"
+            app:min="70"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="reader_width"
+            android:title="Reader mode column width"
+            android:defaultValue="normal"
+            android:entries="@array/reader_width_names"
+            android:entryValues="@array/reader_width_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Torrents" app:iconSpaceReserved="false">
+    <PreferenceCategory android:title="Downloads &amp; torrents" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="download_ask"
+            android:title="Ask where to save each download"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="transfers_remember"
+            android:title="Remember unfinished downloads and torrents"
+            android:summary="So they can be resumed after the browser closes. Finished ones are never recorded. Panic wipe forgets them."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
         <EditTextPreference
             android:key="torrent_down"
             android:title="Download limit (KB/s, 0 = none)"
@@ -316,6 +435,53 @@
             android:key="torrent_seed"
             android:title="Keep seeding after download"
             android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="torrent_seed_ratio"
+            android:title="Stop seeding at share ratio"
+            android:defaultValue="0"
+            android:entries="@array/seed_ratio_names"
+            android:entryValues="@array/seed_ratio_values"
+            android:dependency="torrent_seed"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="torrent_seed_minutes"
+            android:title="Stop seeding after"
+            android:defaultValue="0"
+            android:entries="@array/seed_time_names"
+            android:entryValues="@array/seed_time_values"
+            android:dependency="torrent_seed"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="torrent_max_active"
+            android:title="Torrents downloading at once"
+            android:defaultValue="3"
+            android:entries="@array/torrent_active_names"
+            android:entryValues="@array/torrent_active_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="torrent_start_paused"
+            android:title="Add torrents paused"
+            android:summary="So you can pick files in Details before anything downloads"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="torrent_wifi_only"
+            android:title="Torrents on Wi-Fi only"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="torrent_vpn_only"
+            android:title="Torrents only while a VPN is connected"
+            android:summary="Torrents can&apos;t use Tor, so this stops them exposing your address when the VPN drops"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="torrent_dir_pick"
+            android:title="Save torrents to"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

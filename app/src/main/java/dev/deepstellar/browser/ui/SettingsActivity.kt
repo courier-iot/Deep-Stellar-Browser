@@ -25,7 +25,11 @@ import dev.deepstellar.browser.MainActivity
 import dev.deepstellar.browser.adblock.AdBlocker
 import dev.deepstellar.browser.backup.AutoBackup
 import dev.deepstellar.browser.AppLock
+import dev.deepstellar.browser.Bangs
 import dev.deepstellar.browser.CrashLog
+import dev.deepstellar.browser.SitePrefs
+import dev.deepstellar.browser.downloads.DownloadEngine
+import dev.deepstellar.browser.torrent.TorrentEngine
 import androidx.core.content.ContextCompat
 import dev.deepstellar.browser.adblock.FilterUpdates
 import dev.deepstellar.browser.backup.BackupManager
@@ -179,6 +183,51 @@ class SettingsFragment : PreferenceFragmentCompat() {
         findPreference<Preference>("projects_check")?.setOnPreferenceChangeListener { _, v ->
             view?.post { dev.deepstellar.browser.projects.Projects.setCheckEnabled(requireContext().applicationContext, v == true) }
             true
+        }
+
+        // ---- search shortcuts
+        click("bangs_manage") { manageBangs() }
+
+        // ---- per-site settings
+        click("site_settings") { manageSites() }
+
+        // ---- advanced filter rules
+        findPreference<Preference>("adblock_rules")?.setOnPreferenceChangeListener { _, v ->
+            view?.post {
+                AdBlocker.reload()
+                if (v == true && AdBlocker.ruleCount == 0) toast("Tap Update filter lists to download the rules")
+            }
+            true
+        }
+
+        // ---- downloads & torrents
+        findPreference<Preference>("transfers_remember")?.setOnPreferenceChangeListener { _, v ->
+            if (v == false) {
+                val ctx = requireContext().applicationContext
+                DownloadEngine.forgetAll(ctx)
+                TorrentEngine.forgetAll(ctx)
+            }
+            true
+        }
+        val dirPref = findPreference<Preference>("torrent_dir_pick")
+        fun dirSummary() {
+            val cur = Prefs.raw.getString("torrent_dir", "public")
+            dirPref?.summary = TorrentEngine.saveLocations(requireContext()).firstOrNull { it.first == cur }?.second ?: "Download/DeepStellar/Torrents"
+        }
+        dirSummary()
+        click("torrent_dir_pick") {
+            val options = TorrentEngine.saveLocations(requireContext())
+            val cur = Prefs.raw.getString("torrent_dir", "public")
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Save torrents to")
+                .setSingleChoiceItems(options.map { it.second }.toTypedArray(), options.indexOfFirst { it.first == cur }.coerceAtLeast(0)) { d, i ->
+                    Prefs.raw.edit().putString("torrent_dir", options[i].first).apply()
+                    dirSummary()
+                    d.dismiss()
+                    if (i > 0) toast("Files in an app folder are deleted if you uninstall Deep Stellar")
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         // ---- start page
@@ -369,6 +418,66 @@ class SettingsFragment : PreferenceFragmentCompat() {
         } ?: "Not chosen"
     }
 
+    private fun manageBangs() {
+        val custom = Bangs.custom()
+        val all = Bangs.all().toList()
+        val labels = all.map { (k, v) -> "!$k${if (k in custom) "  (yours)" else ""}\n${v.removePrefix("https://")}" }.toTypedArray()
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Search shortcuts")
+            .setItems(labels) { _, i ->
+                val (k, _) = all[i]
+                if (k in custom) {
+                    confirm("Remove !$k?", "Your shortcut will be deleted.") { Bangs.setCustom(k, null); manageBangs() }
+                } else toast("Built-in. Add your own with the same keyword to replace it.")
+            }
+            .setPositiveButton("Add") { _, _ -> addBang() }
+            .setNegativeButton("Close", null)
+            .show()
+    }
+
+    private fun addBang() {
+        val key = EditText(requireContext()).apply { hint = "Keyword, e.g. cb"; setSingleLine() }
+        val url = EditText(requireContext()).apply {
+            hint = "Address with %s, e.g. https://codeberg.org/explore/repos?q=%s"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+            setSingleLine()
+        }
+        MaterialAlertDialogBuilder(requireContext())
+            .setTitle("Add shortcut")
+            .setView(dialogBox(key, url))
+            .setPositiveButton("Save") { _, _ ->
+                val k = key.text.toString().trim().lowercase().removePrefix("!")
+                val u = url.text.toString().trim()
+                when {
+                    !Regex("^[a-z0-9]{1,12}$").matches(k) -> toast("Keyword: 1–12 letters or digits")
+                    !(u.startsWith("https://") || u.startsWith("http://")) || !u.contains("%s") -> toast("The address must start with https:// and contain %s")
+                    else -> { Bangs.setCustom(k, u); toast("!$k added") }
+                }
+                manageBangs()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun manageSites() {
+        val sites = SitePrefs.allSites()
+        val b = MaterialAlertDialogBuilder(requireContext()).setTitle("Site settings").setNegativeButton("Close", null)
+        if (sites.isEmpty()) {
+            b.setMessage("No sites have their own settings yet. On any site: Menu → Site settings.")
+        } else {
+            b.setItems(sites.map { "${it.first}\n${it.second}" }.toTypedArray()) { _, i ->
+                confirm("Reset ${sites[i].first}?", "Its permissions and settings go back to the defaults.") {
+                    SitePrefs.clear(sites[i].first)
+                    manageSites()
+                }
+            }
+            b.setNeutralButton("Reset all") { _, _ ->
+                confirm("Reset every site?", "All per-site permissions and settings are removed.") { SitePrefs.clearAll() }
+            }
+        }
+        b.show()
+    }
+
     private fun shortcutsSummary(): String {
         val n = dev.deepstellar.browser.StartShortcuts.all().size
         return if (n == 0) "None yet · tap to add" else "$n shortcut${if (n == 1) "" else "s"} · tap to add, edit, reorder or remove"
@@ -403,7 +512,8 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val df = java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM)
         val last = FilterUpdates.lastUpdate
         val err = FilterUpdates.lastError
-        return "${AdBlocker.listSize} domains · " + when {
+        val rules = if (AdBlocker.ruleCount > 0) " + ${AdBlocker.ruleCount} rules" else ""
+        return "${AdBlocker.listSize} domains$rules · " + when {
             err != null -> "⚠ $err · tap to retry"
             last > 0 -> "updated ${df.format(Date(last))} · tap to update now"
             else -> "tap to download StevenBlack + AdGuard lists"

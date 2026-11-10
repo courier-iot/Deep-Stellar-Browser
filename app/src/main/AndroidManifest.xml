@@ -10,6 +10,14 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Only used by the QR scanner, and only after you tap "Scan". -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Asked per site, only when a page requests it and you allow it. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
@@ -92,6 +100,10 @@
             android:exported="false"
             android:label="@string/transfers" />
 
+        <activity
+            android:name=".ui.TorrentDetailActivity"
+            android:exported="false"
+            android:label="Torrent" />
         <activity
             android:name=".ui.LockActivity"
             android:exported="false"

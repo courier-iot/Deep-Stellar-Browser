@@ -20,8 +20,11 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Built-in download manager with pause / resume (HTTP Range) / cancel.
- * Finished files go to Download/DeepStellar. The list itself lives in memory
- * only and is gone when the app closes — no download history is kept.
+ * Finished files go to Download/DeepStellar, or wherever you picked.
+ *
+ * Finished downloads are never recorded. Unfinished ones are remembered across
+ * restarts (optional setting) so they can be resumed; they come back paused,
+ * because the cookies they started with were wiped.
  */
 object DownloadEngine {
 
@@ -34,6 +37,8 @@ object DownloadEngine {
         val mimeType: String,
         val userAgent: String,
         val referer: String?,
+        /** Where you chose to save it ("ask where to save"), or null for Download/DeepStellar. */
+        val destUri: Uri? = null,
     ) {
         @Volatile var state: State = State.QUEUED
         @Volatile var total: Long = -1
@@ -45,7 +50,8 @@ object DownloadEngine {
         val isActive get() = state == State.QUEUED || state == State.RUNNING
     }
 
-    private val ids = AtomicLong(1)
+    private val ids = AtomicLong(System.currentTimeMillis())
+    private val remember get() = dev.deepstellar.browser.Prefs.raw.getBoolean("transfers_remember", true)
     val items = CopyOnWriteArrayList<Item>()
     private val pool = Executors.newFixedThreadPool(3)
     private lateinit var app: Context
@@ -59,15 +65,18 @@ object DownloadEngine {
         contentDisposition: String?,
         mimeType: String?,
         referer: String?,
+        destUri: Uri? = null,
+        fileName: String? = null,
     ): Item {
         app = context.applicationContext
         val mime = mimeType?.takeIf { it.isNotBlank() && it != "application/octet-stream" }
             ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(MimeTypeMap.getFileExtensionFromUrl(url))
             ?: "application/octet-stream"
-        val name = URLUtil.guessFileName(url, contentDisposition, mime)
-        val item = Item(ids.getAndIncrement(), url, name, mime, userAgent, referer)
+        val name = fileName ?: URLUtil.guessFileName(url, contentDisposition, mime)
+        val item = Item(ids.incrementAndGet(), url, name, mime, userAgent, referer, destUri)
         items.add(0, item)
         start(item)
+        saveIndex()
         return item
     }
 
@@ -75,6 +84,7 @@ object DownloadEngine {
         if (item.state != State.RUNNING && item.state != State.QUEUED) return
         item.state = State.PAUSED
         item.future?.cancel(true)
+        saveIndex()
     }
 
     fun resume(item: Item) {
@@ -85,16 +95,20 @@ object DownloadEngine {
         item.state = State.CANCELLED
         item.future?.cancel(true)
         partFile(item).delete()
+        saveIndex()
     }
 
     fun remove(item: Item) {
-        if (item.isActive) cancel(item)
+        if (item.isActive || item.state == State.PAUSED || item.state == State.FAILED) cancel(item)
         items.remove(item)
+        saveIndex()
     }
 
     /** Clears the in-memory list (files already saved are kept). */
     fun clearFinished() {
+        items.filter { it.state == State.FAILED }.forEach { partFile(it).delete() }
         items.removeIf { it.state == State.DONE || it.state == State.CANCELLED || it.state == State.FAILED }
+        saveIndex()
     }
 
     private fun partDir(): File = File(app.getExternalFilesDir(null) ?: app.filesDir, "partial").apply { mkdirs() }
@@ -129,6 +143,7 @@ object DownloadEngine {
             }
         } finally {
             item.speedBps = 0
+            saveIndex()
         }
     }
 
@@ -200,6 +215,14 @@ object DownloadEngine {
     /** Moves the finished file into the public Download/DeepStellar folder. */
     private fun publish(item: Item) {
         val part = partFile(item)
+        item.destUri?.let { dest ->
+            // "Ask where to save": write straight to the place you picked.
+            app.contentResolver.openOutputStream(dest, "wt")?.use { out -> part.inputStream().use { it.copyTo(out) } }
+                ?: throw IllegalStateException("Couldn't write to the chosen location")
+            part.delete()
+            item.resultUri = dest
+            return
+        }
         val values = ContentValues().apply {
             put(MediaStore.Downloads.DISPLAY_NAME, item.fileName)
             put(MediaStore.Downloads.MIME_TYPE, item.mimeType)
@@ -224,9 +247,61 @@ object DownloadEngine {
         item.resultUri = uri
     }
 
-    /** Called at exit: removes half-finished temp files. */
+    // ------------------------------------------------------------ remembered (unfinished) downloads
+
+    private fun indexFile(ctx: Context) = File(ctx.filesDir, "downloads.json")
+
+    @Synchronized
+    private fun saveIndex() {
+        if (!::app.isInitialized) return
+        runCatching {
+            if (!remember) { indexFile(app).delete(); return }
+            val arr = org.json.JSONArray()
+            items.filter { it.state != State.DONE && it.state != State.CANCELLED && !it.url.startsWith("data:") }.forEach { d ->
+                arr.put(
+                    org.json.JSONObject()
+                        .put("id", d.id).put("url", d.url).put("name", d.fileName).put("mime", d.mimeType)
+                        .put("ua", d.userAgent).put("ref", d.referer ?: "").put("dest", d.destUri?.toString() ?: "")
+                        .put("total", d.total)
+                )
+            }
+            indexFile(app).writeText(arr.toString())
+        }
+    }
+
+    /** Called once when the browser opens: bring back unfinished downloads, paused. */
+    fun restore(context: Context) {
+        app = context.applicationContext
+        if (items.isNotEmpty() || !remember) return
+        val arr = runCatching { org.json.JSONArray(indexFile(app).readText()) }.getOrNull() ?: return
+        for (i in 0 until arr.length()) {
+            val o = arr.getJSONObject(i)
+            val item = Item(
+                o.getLong("id"), o.getString("url"), o.optString("name", "download"), o.optString("mime", "application/octet-stream"),
+                o.optString("ua"), o.optString("ref").ifEmpty { null },
+                o.optString("dest").takeIf { it.isNotEmpty() }?.let { Uri.parse(it) },
+            )
+            item.state = State.PAUSED
+            item.total = o.optLong("total", -1)
+            item.done = partFile(item).takeIf { it.exists() }?.length() ?: 0L
+            items.add(item)
+        }
+    }
+
+    /** At launch: delete temp files that don't belong to a remembered download. */
     fun wipePartials(context: Context) {
+        val keep = HashSet<String>()
+        if (dev.deepstellar.browser.Prefs.raw.getBoolean("transfers_remember", true)) runCatching {
+            val arr = org.json.JSONArray(indexFile(context).readText())
+            for (i in 0 until arr.length()) keep += "${arr.getJSONObject(i).getLong("id")}.part"
+        }
         val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "partial")
-        dir.listFiles()?.forEach { it.delete() }
+        dir.listFiles()?.filter { it.name !in keep }?.forEach { it.delete() }
+    }
+
+    /** Panic wipe / turning the setting off: forget everything unfinished. */
+    fun forgetAll(context: Context) {
+        runCatching { indexFile(context).delete() }
+        File(context.getExternalFilesDir(null) ?: context.filesDir, "partial").listFiles()?.forEach { it.delete() }
     }
 }

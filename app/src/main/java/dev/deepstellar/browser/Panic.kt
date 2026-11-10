@@ -35,6 +35,8 @@ object Panic {
         runCatching { TorrentEngine.items.toList().forEach { TorrentEngine.remove(it) } }
         runCatching { TorrentEngine.shutdown() }
         runCatching { app.stopService(Intent(app, TransferService::class.java)) }
+        runCatching { DownloadEngine.forgetAll(app) }
+        runCatching { TorrentEngine.forgetAll(app) }
 
         // 2) History (optional)
         if (alsoHistory) runCatching { HistoryStore.clearNow() }
