@@ -91,7 +91,7 @@
         <item>900</item>
     </string-array>
     <string-array name="webrtc_names">
-        <item>Relay only — sites can&apos;t see your IP address (recommended)</item>
+        <item>Relay only — sites cannot see your IP address (recommended)</item>
         <item>Off — no WebRTC at all (breaks video calls)</item>
         <item>Allow — no protection</item>
     </string-array>
