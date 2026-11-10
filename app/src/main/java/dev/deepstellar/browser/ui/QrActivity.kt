@@ -349,6 +349,14 @@ class QrActivity : AppCompatActivity() {
     private fun onDecoded(text: String) {
         stopCamera()
         val trimmed = text.trim()
+        if (trimmed.startsWith("dsstation://pair", ignoreCase = true)) {
+            // A Deep Stellar Station pairing code: link with that computer.
+            startActivity(Intent(this, LinkActivity::class.java)
+                .putExtra(LinkActivity.EXTRA_PAIR, trimmed)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+            finish()
+            return
+        }
         val isMagnet = trimmed.startsWith("magnet:", ignoreCase = true)
         val isUrl = trimmed.startsWith("http://", true) || trimmed.startsWith("https://", true) ||
             (!trimmed.contains(' ') && Patterns.WEB_URL.matcher(trimmed).matches())

@@ -67,13 +67,14 @@ object AdBlocker {
                 lines.forEach { parseLine(it)?.let(set::add) }
             }
         }
-        if (filtersFile.exists()) runCatching {
+        if (filtersFile.exists() && !SafeMode.active) runCatching {
             filtersFile.bufferedReader().useLines { lines -> lines.forEach { parseLine(it)?.let(set::add) } }
         }
         listDomains = set
         userDomains = if (userFile.exists()) userFile.readLines().map { it.trim() }.filter { it.isNotEmpty() }.toSet() else emptySet()
         Log.i(TAG, "Loaded ${set.size} list domains, ${userDomains.size} user domains")
-        if (advanced) FilterEngine.load(rulesFile) else FilterEngine.load(File(appContext.filesDir, "none"))
+        if (advanced && !SafeMode.active) FilterEngine.load(rulesFile, File(appContext.filesDir, "filters_abp.cache"))
+        else FilterEngine.load(File(appContext.filesDir, "none"), null)
     }
 
     /** Accepts hosts format, plain domains, and ABP "||domain^" rules. */
@@ -204,6 +205,14 @@ object AdBlocker {
     fun clearUserList() = io.execute {
         userDomains = emptySet()
         userFile.delete()
+    }
+
+    /** Safe mode: delete the downloaded lists and rules (the bundled list stays). */
+    fun resetDownloadedLists() = io.execute {
+        filtersFile.delete()
+        rulesFile.delete()
+        File(appContext.filesDir, "filters_abp.cache").delete()
+        reloadLists()
     }
 
     /** Re-reads the lists from disk (after a setting changed). */

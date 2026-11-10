@@ -4,6 +4,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Linking with Deep Stellar Station: find the computer on your own Wi-Fi (mDNS). -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
@@ -104,6 +107,11 @@
             android:name=".ui.TorrentDetailActivity"
             android:exported="false"
             android:label="Torrent" />
+        <activity
+            android:name=".ui.LinkActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:label="Linked computers" />
         <activity
             android:name=".ui.LockActivity"
             android:exported="false"

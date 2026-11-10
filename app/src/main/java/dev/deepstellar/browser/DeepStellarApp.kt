@@ -14,7 +14,8 @@ class DeepStellarApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        Prefs.init(this)
+        SafeMode.init(this) // before anything else, so a broken setting can't hide a crash loop
+        Prefs.init(this) // also upgrades settings saved by older versions
         CrashLog.install(this)
         // Wipe before the WebView engine starts, in case the last session crashed.
         PrivacyWiper.wipeDiskCaches(this)
@@ -24,6 +25,7 @@ class DeepStellarApp : Application() {
         AdBlocker.init(this)
         runCatching { dev.deepstellar.browser.adblock.FilterUpdates.ensureScheduled(this) }
         AppLock.install(this)
+        dev.deepstellar.browser.link.LinkManager.init(this)
         runCatching { dev.deepstellar.browser.projects.Projects.ensureScheduled(this) }
 
         val nm = getSystemService(NotificationManager::class.java)
@@ -32,6 +34,9 @@ class DeepStellarApp : Application() {
         )
         nm?.createNotificationChannel(
             NotificationChannel(dev.deepstellar.browser.projects.Projects.CHANNEL, "Project news", NotificationManager.IMPORTANCE_LOW)
+        )
+        nm?.createNotificationChannel(
+            NotificationChannel(dev.deepstellar.browser.link.LinkManager.CHANNEL, "From linked computers", NotificationManager.IMPORTANCE_DEFAULT)
         )
     }
 

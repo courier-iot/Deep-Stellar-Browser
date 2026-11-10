@@ -47,8 +47,8 @@ interface BrowserHost {
     fun onRendererGone(tab: Tab)
     /** A page asks for camera / microphone / location. Call [answer] with the decision. */
     fun onSitePermission(tab: Tab, siteHost: String?, kinds: List<String>, answer: (Boolean) -> Unit)
-    /** A blob: download finished being read out of the page (or failed). */
-    fun onBlobDownload(tab: Tab, dataUrl: String?, mimeType: String?, error: String?)
+    /** A blob: file finished being copied out of the page into [file] (or failed). */
+    fun onBlobDownload(tab: Tab, file: java.io.File?, mimeType: String?, error: String?)
 }
 
 object BrowserEngine {
@@ -170,11 +170,12 @@ object BrowserEngine {
     /** (Re)installs the document-start privacy scripts when the relevant settings changed. */
     fun applyPageScripts(tab: Tab) {
         val wv = tab.webView ?: return
-        val sig = PageScripts.signature()
+        val sig = if (SafeMode.active) "safe" else PageScripts.signature()
         if (tab.pageScriptSig == sig) return
         tab.pageScript?.remove()
         tab.pageScript = null
         tab.pageScriptSig = sig
+        if (SafeMode.active) return
         val js = PageScripts.documentStart() ?: return
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             runCatching { tab.pageScript = WebViewCompat.addDocumentStartJavaScript(wv, js, setOf("*")) }
@@ -203,9 +204,24 @@ object BrowserEngine {
 
     // ---------------------------------------------------------------- blob: downloads
 
-    private val pendingBlobs = HashMap<String, String?>() // nonce -> mime type
+    /** A blob: file being copied out of a page, chunk by chunk, straight to a temp file. */
+    private class BlobJob(val tab: Tab, val host: BrowserHost, val file: java.io.File, val mime: String?) {
+        var out: java.io.OutputStream? = null
+        var written = 0L
+        var failed = false
+    }
 
-    /** Reads a blob: file out of the page (it only exists inside that page) and hands it to the host. */
+    private val blobJobs = java.util.concurrent.ConcurrentHashMap<String, BlobJob>()
+    private val blobIo = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private const val BLOB_MAX = 2L * 1024 * 1024 * 1024 // 2 GB
+    private const val BLOB_CHUNK = 512 * 1024
+
+    fun blobDir(ctx: Context) = java.io.File(ctx.cacheDir, "blobs").apply { mkdirs() }
+
+    /**
+     * Reads a blob: file out of the page (it only exists inside that page). The page sends it in
+     * 512 KB pieces and waits for each to be acknowledged, so memory use stays small whatever the size.
+     */
     fun fetchBlob(tab: Tab, blobUrl: String, mimeType: String?, host: BrowserHost) {
         val wv = tab.webView
         if (wv == null || !WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
@@ -213,17 +229,62 @@ object BrowserEngine {
             return
         }
         val nonce = java.util.UUID.randomUUID().toString()
-        pendingBlobs[nonce] = mimeType
+        blobJobs[nonce] = BlobJob(tab, host, java.io.File(blobDir(wv.context), "$nonce.bin"), mimeType)
         val u = org.json.JSONObject.quote(blobUrl)
         wv.evaluateJavascript(
-            "(function(){var N='" + nonce + "';function send(o){o.n=N;dsBridge.postMessage(JSON.stringify(o));}" +
+            "(function(){var N='" + nonce + "',C=" + BLOB_CHUNK + ",MAX=" + BLOB_MAX + ";" +
+            "function send(o){o.n=N;dsBridge.postMessage(JSON.stringify(o));}" +
+            "function piece(b,i){if(i>=b.size){send({done:1,t:b.type});return;}" +
+            "var fr=new FileReader();fr.onload=function(){var s=String(fr.result);" +
+            "window['__dsAck'+N]=function(){piece(b,i+C);};send({i:i,d:s.slice(s.indexOf(',')+1)});};" +
+            "fr.onerror=function(){send({err:'Could not read the file'});};fr.readAsDataURL(b.slice(i,i+C));}" +
             "try{fetch(" + u + ").then(function(r){return r.blob();}).then(function(b){" +
-            "if(b.size>100*1024*1024){send({err:'File is larger than 100 MB'});return;}" +
-            "var fr=new FileReader();fr.onload=function(){send({d:fr.result,t:b.type});};" +
-            "fr.onerror=function(){send({err:'Could not read the file'});};fr.readAsDataURL(b);" +
+            "if(b.size>MAX){send({err:'File is larger than 2 GB'});return;}piece(b,0);" +
             "}).catch(function(e){send({err:String(e)});});}catch(e){send({err:String(e)});}})();",
             null,
         )
+    }
+
+    /** One message from the page: a chunk, the end, or an error. Runs on the main thread. */
+    private fun onBlobMessage(wv: WebView, data: String) {
+        val o = runCatching { org.json.JSONObject(data) }.getOrNull() ?: return
+        val nonce = o.optString("n")
+        val job = blobJobs[nonce] ?: return // not a transfer the browser started
+        val err = o.optString("err").takeIf { it.isNotEmpty() }
+        when {
+            err != null -> {
+                blobJobs.remove(nonce)
+                blobIo.execute { runCatching { job.out?.close() }; job.file.delete() }
+                job.host.onBlobDownload(job.tab, null, job.mime, err)
+            }
+            o.has("done") -> {
+                blobJobs.remove(nonce)
+                val type = o.optString("t").ifEmpty { job.mime }
+                blobIo.execute {
+                    runCatching { job.out?.close() }
+                    if (job.out == null) runCatching { job.file.createNewFile() } // empty file
+                    wv.post {
+                        if (job.failed) { job.file.delete(); job.host.onBlobDownload(job.tab, null, type, "Couldn't write the file") }
+                        else job.host.onBlobDownload(job.tab, job.file, type, null)
+                    }
+                }
+            }
+            else -> {
+                val b64 = o.optString("d")
+                blobIo.execute {
+                    if (!job.failed) try {
+                        val bytes = android.util.Base64.decode(b64, android.util.Base64.DEFAULT)
+                        val out = job.out ?: java.io.FileOutputStream(job.file).buffered(1 shl 16).also { job.out = it }
+                        out.write(bytes)
+                        job.written += bytes.size
+                    } catch (e: Exception) {
+                        job.failed = true
+                    }
+                    // Ask the page for the next piece only after this one is on disk.
+                    wv.post { wv.evaluateJavascript("(function(){var f=window['__dsAck$nonce'];if(f){delete window['__dsAck$nonce'];f();}})();", null) }
+                }
+            }
+        }
     }
 
     // ---------------------------------------------------------------- creation
@@ -317,7 +378,7 @@ object BrowserEngine {
                 tab.url = url
                 tab.pageHost = Uri.parse(url).host
                 applySiteOverrides(ctx, view, tab, url)
-                if (tab.pageScript == null) PageScripts.documentStart()?.let { view.evaluateJavascript(it, null) } // old WebView fallback
+                if (tab.pageScript == null && !SafeMode.active) PageScripts.documentStart()?.let { view.evaluateJavascript(it, null) } // old WebView fallback
                 tab.blockedOnPage = 0
                 tab.readerMode = false
                 tab.progress = 0
@@ -333,7 +394,7 @@ object BrowserEngine {
                 tab.url = url
                 tab.progress = 100
                 injectCosmetic(view, tab)
-                if (PageScripts.cookieBanners && !tab.isBuiltInPage) view.evaluateJavascript(PageScripts.COOKIE_BANNERS, null)
+                if (PageScripts.cookieBanners && !tab.isBuiltInPage && !SafeMode.active) view.evaluateJavascript(PageScripts.COOKIE_BANNERS, null)
                 HistoryStore.record(url, view.title ?: tab.title)
                 host.onTabUpdated(tab)
             }
@@ -445,13 +506,8 @@ object BrowserEngine {
         // Channel for blob: downloads. Messages are only accepted for a request the browser itself started.
         if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
             runCatching {
-                WebViewCompat.addWebMessageListener(wv, "dsBridge", setOf("*")) { _, message, _, _, _ ->
-                    val o = runCatching { org.json.JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
-                    val nonce = o.optString("n")
-                    if (!pendingBlobs.containsKey(nonce)) return@addWebMessageListener
-                    val mime = pendingBlobs.remove(nonce)
-                    val err = o.optString("err").takeIf { it.isNotEmpty() }
-                    host.onBlobDownload(tab, o.optString("d").takeIf { it.startsWith("data:") }, o.optString("t").ifEmpty { mime }, err)
+                WebViewCompat.addWebMessageListener(wv, "dsBridge", setOf("*")) { view, message, _, _, _ ->
+                    onBlobMessage(view, message.data ?: return@addWebMessageListener)
                 }
             }
         }

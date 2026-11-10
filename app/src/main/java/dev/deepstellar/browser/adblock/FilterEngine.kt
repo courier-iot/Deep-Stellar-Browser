@@ -86,7 +86,13 @@ object FilterEngine {
 
     // ------------------------------------------------------------ loading
 
-    fun load(file: File) {
+    /**
+     * Loads [file]. With a [cache], the parsed rules are kept in a compact binary file and
+     * re-used on later starts until [file] changes, which is several times faster than
+     * re-reading ~80,000 text rules on every launch.
+     */
+    fun load(file: File, cache: File? = null) {
+        if (cache != null && file.exists() && readCache(file, cache)) return
         val b = RuleSet()
         val x = RuleSet()
         if (file.exists()) {
@@ -99,6 +105,108 @@ object FilterEngine {
         blocks = b
         exceptions = x
         Log.i(TAG, "Loaded ${b.count} block rules (${b.domains.size} plain domains), ${x.count} exceptions")
+        if (cache != null) {
+            if (file.exists() && b.count > 0) writeCache(file, cache) else cache.delete()
+        }
+    }
+
+    // ------------------------------------------------------------ binary cache
+
+    private const val CACHE_MAGIC = 0x44534652 // "DSFR"
+    private const val CACHE_VERSION = 1
+
+    private fun writeCache(source: File, cache: File) {
+        runCatching {
+            val tmp = File(cache.parentFile, cache.name + ".tmp")
+            java.io.DataOutputStream(tmp.outputStream().buffered(1 shl 16)).use { out ->
+                out.writeInt(CACHE_MAGIC)
+                out.writeInt(CACHE_VERSION)
+                out.writeLong(source.length())
+                out.writeLong(source.lastModified())
+                writeSet(out, blocks)
+                writeSet(out, exceptions)
+            }
+            if (!tmp.renameTo(cache)) tmp.delete()
+        }.onFailure { cache.delete() }
+    }
+
+    private fun writeSet(out: java.io.DataOutputStream, set: RuleSet) {
+        out.writeInt(set.count)
+        out.writeInt(set.domains.size)
+        set.domains.forEach { out.writeUTF(it) }
+        out.writeInt(set.generic.size)
+        set.generic.forEach { writeRule(out, it) }
+        out.writeInt(set.byToken.size)
+        for ((token, rules) in set.byToken) {
+            out.writeUTF(token)
+            out.writeInt(rules.size)
+            rules.forEach { writeRule(out, it) }
+        }
+    }
+
+    private fun writeRule(out: java.io.DataOutputStream, r: Rule) {
+        out.writeUTF(r.pattern)
+        out.writeByte(r.party)
+        out.writeInt(r.types)
+        out.writeInt(r.notTypes)
+        writeList(out, r.domains)
+        writeList(out, r.notDomains)
+    }
+
+    private fun writeList(out: java.io.DataOutputStream, a: Array<String>?) {
+        if (a == null) { out.writeInt(-1); return }
+        out.writeInt(a.size)
+        a.forEach { out.writeUTF(it) }
+    }
+
+    /** True if the cache matched [source] and was loaded. Any problem → false, and the text is parsed instead. */
+    private fun readCache(source: File, cache: File): Boolean {
+        if (!cache.exists()) return false
+        return try {
+            java.io.DataInputStream(cache.inputStream().buffered(1 shl 16)).use { inp ->
+                if (inp.readInt() != CACHE_MAGIC || inp.readInt() != CACHE_VERSION) return false
+                if (inp.readLong() != source.length() || inp.readLong() != source.lastModified()) return false
+                val b = readSet(inp)
+                val x = readSet(inp)
+                blocks = b
+                exceptions = x
+                Log.i(TAG, "Loaded ${b.count} block rules and ${x.count} exceptions from cache")
+                true
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "cache unreadable, re-parsing: ${e.javaClass.simpleName}")
+            cache.delete()
+            false
+        }
+    }
+
+    private fun readSet(inp: java.io.DataInputStream): RuleSet {
+        val set = RuleSet()
+        set.count = inp.readInt()
+        repeat(inp.readInt()) { set.domains += inp.readUTF() }
+        repeat(inp.readInt()) { set.generic += readRule(inp) }
+        repeat(inp.readInt()) {
+            val token = inp.readUTF()
+            val n = inp.readInt()
+            val list = ArrayList<Rule>(n)
+            repeat(n) { list += readRule(inp) }
+            set.byToken[token] = list
+        }
+        return set
+    }
+
+    private fun readRule(inp: java.io.DataInputStream): Rule {
+        val pattern = inp.readUTF()
+        val party = inp.readByte().toInt()
+        val types = inp.readInt()
+        val notTypes = inp.readInt()
+        return Rule(pattern, party, types, notTypes, readList(inp), readList(inp))
+    }
+
+    private fun readList(inp: java.io.DataInputStream): Array<String>? {
+        val n = inp.readInt()
+        if (n < 0) return null
+        return Array(n) { inp.readUTF() }
     }
 
     private fun parse(raw: String, blocks: RuleSet, exceptions: RuleSet) {

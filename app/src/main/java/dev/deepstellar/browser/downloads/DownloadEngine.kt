@@ -111,7 +111,9 @@ object DownloadEngine {
         saveIndex()
     }
 
-    private fun partDir(): File = File(app.getExternalFilesDir(null) ?: app.filesDir, "partial").apply { mkdirs() }
+    private fun partDir(): File = partDirFor(app).apply { mkdirs() }
+    private fun partDirFor(ctx: Context): File = File(ctx.getExternalFilesDir(null) ?: ctx.filesDir, "partial")
+    private const val MAX_AGE_MS = 14L * 24 * 60 * 60 * 1000
     private fun partFile(item: Item) = File(partDir(), "${item.id}.part")
 
     private fun start(item: Item) {
@@ -127,6 +129,8 @@ object DownloadEngine {
         try {
             if (item.url.startsWith("data:")) {
                 saveDataUrl(item)
+            } else if (item.url.startsWith("file:")) {
+                takeLocalFile(item)
             } else {
                 httpDownload(item)
             }
@@ -145,6 +149,18 @@ object DownloadEngine {
             item.speedBps = 0
             saveIndex()
         }
+    }
+
+    /** A file a page built itself, already copied to the browser's private temp folder. */
+    private fun takeLocalFile(item: Item) {
+        val src = File(Uri.parse(item.url).path ?: throw IllegalStateException("Bad file"))
+        val allowed = File(app.cacheDir, "blobs").canonicalPath
+        require(src.canonicalPath.startsWith(allowed + File.separator)) { "Not a browser temp file" }
+        if (!src.exists()) throw IllegalStateException("The file is gone — download it again")
+        val part = partFile(item)
+        if (!src.renameTo(part)) { src.copyTo(part, overwrite = true); src.delete() }
+        item.total = part.length()
+        item.done = item.total
     }
 
     private fun saveDataUrl(item: Item) {
@@ -257,12 +273,13 @@ object DownloadEngine {
         runCatching {
             if (!remember) { indexFile(app).delete(); return }
             val arr = org.json.JSONArray()
-            items.filter { it.state != State.DONE && it.state != State.CANCELLED && !it.url.startsWith("data:") }.forEach { d ->
+            items.filter { it.state != State.DONE && it.state != State.CANCELLED && !it.url.startsWith("data:") && !it.url.startsWith("file:") }.forEach { d ->
                 arr.put(
                     org.json.JSONObject()
                         .put("id", d.id).put("url", d.url).put("name", d.fileName).put("mime", d.mimeType)
                         .put("ua", d.userAgent).put("ref", d.referer ?: "").put("dest", d.destUri?.toString() ?: "")
                         .put("total", d.total)
+                        .put("t", d.id.coerceAtMost(System.currentTimeMillis()))
                 )
             }
             indexFile(app).writeText(arr.toString())
@@ -274,8 +291,14 @@ object DownloadEngine {
         app = context.applicationContext
         if (items.isNotEmpty() || !remember) return
         val arr = runCatching { org.json.JSONArray(indexFile(app).readText()) }.getOrNull() ?: return
+        val now = System.currentTimeMillis()
         for (i in 0 until arr.length()) {
             val o = arr.getJSONObject(i)
+            // Storage cap: unfinished downloads older than two weeks are dropped (and their temp file deleted).
+            if (now - o.optLong("t", now) > MAX_AGE_MS) {
+                runCatching { File(partDirFor(app), "${o.getLong("id")}.part").delete() }
+                continue
+            }
             val item = Item(
                 o.getLong("id"), o.getString("url"), o.optString("name", "download"), o.optString("mime", "application/octet-stream"),
                 o.optString("ua"), o.optString("ref").ifEmpty { null },

@@ -57,6 +57,7 @@ import dev.deepstellar.browser.bookmarks.BookmarkStore
 import dev.deepstellar.browser.downloads.DownloadEngine
 import dev.deepstellar.browser.torrent.TorrentEngine
 import dev.deepstellar.browser.history.HistoryStore
+import dev.deepstellar.browser.link.LinkManager
 import dev.deepstellar.browser.history.SuggestionEngine
 import dev.deepstellar.browser.ui.BookmarksActivity
 import dev.deepstellar.browser.ui.HistoryActivity
@@ -190,8 +191,61 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         ResourceGovernor.attach(tabs)
 
         // Unfinished downloads and torrents from last time (if "remember" is on).
-        DownloadEngine.restore(this)
-        TorrentEngine.restore(this)
+        if (!SafeMode.active) {
+            DownloadEngine.restore(this)
+            TorrentEngine.restore(this)
+        }
+
+        if (SafeMode.active && !safeModeShown) { safeModeShown = true; showSafeModeDialog() }
+        else mainHandler.postDelayed({ if (!isFinishing) SafeMode.markStable() }, SafeMode.STABLE_AFTER_MS)
+        checkWebViewVersion()
+    }
+
+    // ================================================================ safe mode / WebView check
+
+    private fun showSafeModeDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Safe mode")
+            .setMessage(
+                "Deep Stellar closed unexpectedly ${SafeMode.crashesBefore} times in a row as it started, so it opened " +
+                    "without downloaded filter lists, privacy page scripts, and unfinished downloads and torrents.\n\n" +
+                    "Pick a fix, or continue to try again normally next time. Crash reports are in Settings."
+            )
+            .setPositiveButton("Reset filter lists") { _, _ ->
+                AdBlocker.resetDownloadedLists()
+                SafeMode.exit()
+                toast("Downloaded lists removed. Restart Deep Stellar to leave safe mode.")
+            }
+            .setNeutralButton("Forget unfinished transfers") { _, _ ->
+                DownloadEngine.forgetAll(applicationContext)
+                TorrentEngine.forgetAll(applicationContext)
+                SafeMode.exit()
+                toast("Done. Restart Deep Stellar to leave safe mode.")
+            }
+            .setNegativeButton("Continue") { _, _ -> SafeMode.exit() }
+            .setCancelable(false)
+            .show()
+    }
+
+    /** Some protections need a recent Android System WebView. Say so once per WebView version. */
+    private fun checkWebViewVersion() {
+        val pkg = runCatching { androidx.webkit.WebViewCompat.getCurrentWebViewPackage(this) }.getOrNull() ?: return
+        val version = pkg.versionName ?: return
+        val major = version.substringBefore('.').toIntOrNull() ?: return
+        val missing = listOf(
+            WebViewFeature.DOCUMENT_START_SCRIPT to "fingerprint and WebRTC protection run late",
+            WebViewFeature.WEB_MESSAGE_LISTENER to "in-page files can't be downloaded",
+            WebViewFeature.PROXY_OVERRIDE to "Tor (Orbot) routing is unavailable",
+        ).filter { !WebViewFeature.isFeatureSupported(it.first) }.map { it.second }
+        if (major >= MIN_WEBVIEW && missing.isEmpty()) return
+        if (Prefs.raw.getString("webview_warned", "") == version) return
+        Prefs.raw.edit().putString("webview_warned", version).apply()
+        val detail = if (missing.isEmpty()) "Some newer protections may not work." else "Right now: " + missing.joinToString("; ") + "."
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Android System WebView is out of date")
+            .setMessage("Deep Stellar shows pages with Android System WebView (version $major on this phone). $detail\n\nUpdate \"Android System WebView\" from your app store to get every protection.")
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     /** Address bar at the top (default) or at the bottom, above the navigation buttons. */
@@ -244,6 +298,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         applyGlobalSettings()
         arrangeBars()
         tabs.current?.webView?.onResume()
+        dev.deepstellar.browser.link.LinkManager.connectAll() // linked computers on this Wi-Fi
         // Start-page sections or shortcuts changed in Settings → refresh open start pages.
         val sig = StartShortcuts.json()
         if (startSig != null && sig != startSig) reloadStartPages()
@@ -530,7 +585,10 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         progress.progress = t.progress
         progress.visibility = if (t.progress in 1..99) View.VISIBLE else View.INVISIBLE
         tabCount.text = if (tabs.count > 99) "∞" else tabs.count.toString()
+        tabCount.contentDescription = "${tabs.count} tab${if (tabs.count == 1) "" else "s"} open. Tap for tabs, hold for a new tab"
+        btnShield.contentDescription = "Ad shield, ${t.blockedOnPage} blocked on this page"
         val marked = !t.isStartPage && BookmarkStore.contains(t.url)
+        btnBookmark.contentDescription = if (marked) "Remove bookmark" else "Bookmark this page"
         ImageViewCompat.setImageTintList(
             btnBookmark,
             ColorStateList.valueOf(Ui.color(this, if (marked) R.color.nebula_violet else R.color.starlight)),
@@ -674,9 +732,26 @@ class MainActivity : AppCompatActivity(), BrowserHost {
                 AppLock.expectExternal(); startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
             }
             item("Copy link") { copy(t.url) }
+            if (LinkManager.hasStations) item("Send to computer", "To a linked Deep Stellar Station, end-to-end encrypted") { sendToStation(t) }
+        }
+        item("Linked computers", if (LinkManager.hasStations) "${LinkManager.stations().count { it.online }} of ${LinkManager.stations().size} connected" else "Link Deep Stellar Station on Linux or Windows") {
+            startActivity(Intent(this, dev.deepstellar.browser.ui.LinkActivity::class.java))
         }
         item("Settings") { startActivity(Intent(this, SettingsActivity::class.java)) }
         item("Exit & wipe", "Close all tabs and erase cookies, cache and site data") { exitAndWipe() }
+    }
+
+    private fun sendToStation(t: Tab) {
+        val list = LinkManager.stations()
+        fun go(st: LinkManager.Station) {
+            LinkManager.sendLink(st.fp, t.url, t.title)
+            toast(if (st.online) "Sent to ${st.name}" else "Will send when ${st.name} is on the same Wi-Fi")
+        }
+        if (list.size == 1) { go(list[0]); return }
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Send to")
+            .setItems(list.map { it.name + if (it.online) "" else " (away)" }.toTypedArray()) { _, i -> go(list[i]) }
+            .show()
     }
 
     private fun transfersSummary(): String {
@@ -828,14 +903,14 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         snackTransfers("Downloading ${item.fileName}$size")
     }
 
-    override fun onBlobDownload(tab: Tab, dataUrl: String?, mimeType: String?, error: String?) {
-        if (dataUrl == null || error != null) {
+    override fun onBlobDownload(tab: Tab, file: java.io.File?, mimeType: String?, error: String?) {
+        if (file == null || error != null) {
             toast("Couldn't save this file: ${error ?: "the page didn't hand it over"}")
             return
         }
         askNotificationsOnce()
         val name = android.webkit.URLUtil.guessFileName("https://local/download", null, mimeType)
-        beginDownload(tab.url, dataUrl, BrowserEngine.userAgentFor(this, tab), null, mimeType, -1, name)
+        beginDownload(tab.url, Uri.fromFile(file).toString(), BrowserEngine.userAgentFor(this, tab), null, mimeType, file.length(), name)
     }
 
     // ================================================================ site permissions
@@ -1158,6 +1233,10 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
 
     companion object {
+        /** Oldest Android System WebView major version every feature has been checked against. */
+        private const val MIN_WEBVIEW = 110
+        private var safeModeShown = false
+
         /** Tabs handed from the old screen to the new one during a theme change (memory only). */
         private var carriedTabs: Pair<List<Tab>, Long?>? = null
     }

@@ -70,6 +70,8 @@ object Ui {
     }
 
     fun header(ctx: Context, text: String): TextView = TextView(ctx).apply {
+        androidx.core.view.ViewCompat.setAccessibilityHeading(this, true) // screen readers can jump between sections
+        contentDescription = text // read normally, not letter by letter in capitals
         this.text = text.uppercase()
         setTextColor(color(ctx, R.color.cosmic_blue))
         textSize = 11f

@@ -38,7 +38,7 @@
         <SwitchPreferenceCompat
             android:key="bangs_bare"
             android:title="Shortcuts without the !"
-            android:summary="gh rust works too (keywords of 2+ letters). Off by default so ordinary searches aren&apos;t hijacked."
+            android:summary="gh rust works too (keywords of 2+ letters). Off by default so ordinary searches are not hijacked."
             android:defaultValue="false"
             android:dependency="bangs_enabled"
             app:iconSpaceReserved="false" />
@@ -160,7 +160,7 @@
         <SwitchPreferenceCompat
             android:key="adblock_rules"
             android:title="Advanced filter rules"
-            android:summary="EasyList and EasyPrivacy in full, which catches ads served from a site&apos;s own domain. Downloaded with Update filter lists."
+            android:summary="EasyList and EasyPrivacy in full, which catches ads served from the same domain as the page. Downloaded with Update filter lists."
             android:defaultValue="true"
             android:dependency="adblock_enabled"
             app:iconSpaceReserved="false" />
@@ -476,7 +476,7 @@
         <SwitchPreferenceCompat
             android:key="torrent_vpn_only"
             android:title="Torrents only while a VPN is connected"
-            android:summary="Torrents can&apos;t use Tor, so this stops them exposing your address when the VPN drops"
+            android:summary="Torrents cannot use Tor, so this stops them exposing your address when the VPN drops"
             android:defaultValue="false"
             app:iconSpaceReserved="false" />
         <Preference

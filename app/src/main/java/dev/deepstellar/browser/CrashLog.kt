@@ -31,6 +31,7 @@ object CrashLog {
         dir = File(context.filesDir, "crashes")
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
+            runCatching { SafeMode.onCrash() }
             runCatching { if (enabled) write(thread, error) }
             previous?.uncaughtException(thread, error)
         }

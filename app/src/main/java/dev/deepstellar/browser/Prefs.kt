@@ -12,8 +12,7 @@ object Prefs {
 
     fun init(context: Context) {
         sp = PreferenceManager.getDefaultSharedPreferences(context.applicationContext)
-        // "Keep me logged in" was removed; forget any list an earlier build saved.
-        if (sp.contains("keep_sites")) sp.edit().remove("keep_sites").apply()
+        Migrations.run(sp)
     }
 
     val raw: SharedPreferences get() = sp

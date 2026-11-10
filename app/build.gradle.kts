@@ -67,8 +67,15 @@ android {
         buildConfig = true
     }
     lint {
+        // Lint runs in CI and publishes a report; it doesn't block builds (yet).
         abortOnError = false
         checkReleaseBuilds = false
+        htmlReport = true
+        xmlReport = false
+    }
+    testOptions {
+        // Unit tests run on a normal JVM: Android classes they touch return defaults instead of crashing.
+        unitTests.isReturnDefaultValues = true
     }
     packaging {
         resources.excludes += setOf("META-INF/LICENSE*", "META-INF/NOTICE*")
@@ -105,4 +112,8 @@ dependencies {
     implementation("org.libtorrent4j:libtorrent4j-android-arm64:$libtorrent4j")
     implementation("org.libtorrent4j:libtorrent4j-android-arm:$libtorrent4j")
     implementation("org.libtorrent4j:libtorrent4j-android-x86_64:$libtorrent4j")
+
+    // Test-only: never part of the APK.
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303") // real org.json for tests (Android's copy is a stub on a plain JVM)
 }

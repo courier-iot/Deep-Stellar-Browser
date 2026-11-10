@@ -27,6 +27,8 @@ dev.deepstellar.browser
 ├── PageScripts       WebRTC relay-only, fingerprint noise, referrer trimming, cookie-banner script
 ├── SitePrefs         Per-site permissions, JavaScript, desktop mode, text zoom
 ├── Bangs             Search shortcuts
+├── SafeMode          Crash-loop detection: 3 crashes within 20 s of start → next start skips risky parts and offers resets
+├── Migrations        Numbered, run-once settings upgrades
 ├── NetUtil               The only place the app opens its own HTTP connections (respects Tor)
 ├── Prefs                 Typed access to settings (SharedPreferences)
 │

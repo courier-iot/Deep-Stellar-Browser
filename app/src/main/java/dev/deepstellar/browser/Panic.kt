@@ -38,6 +38,9 @@ object Panic {
         runCatching { DownloadEngine.forgetAll(app) }
         runCatching { TorrentEngine.forgetAll(app) }
 
+        // 1b) What was shared with linked computers
+        runCatching { dev.deepstellar.browser.link.LinkManager.panicWipe(app) }
+
         // 2) History (optional)
         if (alsoHistory) runCatching { HistoryStore.clearNow() }
 
