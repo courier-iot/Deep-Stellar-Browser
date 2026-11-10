@@ -251,13 +251,25 @@
         <SwitchPreferenceCompat
             android:key="start_show_rec"
             android:title="Show Recommended"
-            android:summary="Wikipedia, Maps, Archive, GitHub, APOD, r/space, HN, Bookmarks"
+            android:summary="Projects, Wikipedia, Maps, Archive, GitHub, APOD, r/space, HN, Bookmarks"
             android:defaultValue="true"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:key="start_show_mine"
             android:title="Show Your shortcuts"
             android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="projects_check"
+            android:title="Check GitHub for project news"
+            android:summary="Every 6 hours, look for new projects, updates and releases for the Projects page. Contacts GitHub's public API only, through your Tor setting."
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="projects_notify"
+            android:title="Notify me about project news"
+            android:defaultValue="true"
+            android:dependency="projects_check"
             app:iconSpaceReserved="false" />
         <Preference
             android:key="manage_shortcuts"

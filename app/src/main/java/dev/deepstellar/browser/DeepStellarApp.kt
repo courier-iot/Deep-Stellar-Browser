@@ -24,10 +24,14 @@ class DeepStellarApp : Application() {
         AdBlocker.init(this)
         runCatching { dev.deepstellar.browser.adblock.FilterUpdates.ensureScheduled(this) }
         AppLock.install(this)
+        runCatching { dev.deepstellar.browser.projects.Projects.ensureScheduled(this) }
 
         val nm = getSystemService(NotificationManager::class.java)
         nm?.createNotificationChannel(
             NotificationChannel(CHANNEL_TRANSFERS, "Downloads & torrents", NotificationManager.IMPORTANCE_LOW)
+        )
+        nm?.createNotificationChannel(
+            NotificationChannel(dev.deepstellar.browser.projects.Projects.CHANNEL, "Project news", NotificationManager.IMPORTANCE_LOW)
         )
     }
 

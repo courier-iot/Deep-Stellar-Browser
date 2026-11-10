@@ -59,6 +59,7 @@ import dev.deepstellar.browser.ui.BookmarksActivity
 import dev.deepstellar.browser.ui.HistoryActivity
 import dev.deepstellar.browser.inspect.Inspector
 import dev.deepstellar.browser.inspect.MarkdownView
+import dev.deepstellar.browser.projects.Projects
 import dev.deepstellar.browser.ui.Format
 import dev.deepstellar.browser.ui.ShortcutDialogs
 import dev.deepstellar.browser.ui.InspectorActivity
@@ -427,7 +428,11 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     private fun updateChrome() {
         val t = tabs.current ?: return
         if (!urlBar.hasFocus()) {
-            urlBar.setText(if (t.isStartPage) "" else t.url.removePrefix("https://"))
+            urlBar.setText(when {
+                t.isStartPage -> ""
+                t.isBuiltInPage -> t.title.ifBlank { "Projects" }
+                else -> t.url.removePrefix("https://")
+            })
         }
         progress.progress = t.progress
         progress.visibility = if (t.progress in 1..99) View.VISIBLE else View.INVISIBLE
@@ -634,6 +639,18 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             "search" -> uri.getQueryParameter("q")?.let { tab.webView?.loadUrl(Prefs.searchUrl(it), TabManager.extraHeaders()) }
             "bookmarks" -> startActivity(Intent(this, BookmarksActivity::class.java))
             "shortcut-add" -> ShortcutDialogs.edit(this, null) { reloadStartPages() }
+            "projects" -> tab.webView?.loadUrl(BrowserEngine.projectsPageUrl())
+            "projects-check-on" -> {
+                Projects.setCheckEnabled(applicationContext, true)
+                askNotificationsOnce()
+                toast("Checking GitHub every 6 hours")
+                tab.webView?.postDelayed({ if (tab.url.startsWith(BrowserEngine.PROJECTS_PAGE_PREFIX)) tab.webView?.reload() }, 4000)
+            }
+            "projects-check" -> {
+                Projects.checkNow(applicationContext)
+                toast("Checking GitHub…")
+                tab.webView?.postDelayed({ if (tab.url.startsWith(BrowserEngine.PROJECTS_PAGE_PREFIX)) tab.webView?.reload() }, 4000)
+            }
         }
     }
 

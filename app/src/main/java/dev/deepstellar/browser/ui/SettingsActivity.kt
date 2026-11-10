@@ -175,6 +175,12 @@ class SettingsFragment : PreferenceFragmentCompat() {
             }
         }
 
+        // ---- projects page
+        findPreference<Preference>("projects_check")?.setOnPreferenceChangeListener { _, v ->
+            view?.post { dev.deepstellar.browser.projects.Projects.setCheckEnabled(requireContext().applicationContext, v == true) }
+            true
+        }
+
         // ---- start page
         click("manage_shortcuts") { p ->
             ShortcutDialogs.manage(requireActivity()) { p.summary = shortcutsSummary() }

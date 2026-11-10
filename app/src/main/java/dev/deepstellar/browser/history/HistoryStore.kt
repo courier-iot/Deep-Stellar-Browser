@@ -65,6 +65,7 @@ object HistoryStore {
     fun record(url: String, title: String) {
         if (!enabled || !loaded) return
         if (!(url.startsWith("http://") || url.startsWith("https://"))) return
+        if (url.startsWith("https://appassets.androidplatform.net/")) return // built-in pages
         if (Prefs.torProxy && Prefs.raw.getBoolean("history_pause_tor", true)) return
         synchronized(this) {
             val now = System.currentTimeMillis()

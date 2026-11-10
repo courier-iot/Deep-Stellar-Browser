@@ -57,6 +57,10 @@ object BrowserEngine {
         return "$START_PAGE_PREFIX?fps=$fps&still=$still&theme=${dev.deepstellar.browser.ui.Themes.current}"
     }
 
+    const val PROJECTS_PAGE_PREFIX = "https://$ASSET_HOST/assets/projects.html"
+
+    fun projectsPageUrl(): String = "$PROJECTS_PAGE_PREFIX?theme=${dev.deepstellar.browser.ui.Themes.current}"
+
     private var defaultUa: String? = null
 
     /** WebView's UA minus the "; wv" and "Version/4.0" markers, so we look like plain Chrome. */
@@ -170,10 +174,12 @@ object BrowserEngine {
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
             // Start-page settings and your shortcuts, served from memory (other sites can't read it: no CORS).
             .addPathHandler("/data/", WebViewAssetLoader.PathHandler { path ->
-                if (path == "start.json") {
-                    WebResourceResponse("application/json", "utf-8",
-                        ByteArrayInputStream(StartShortcuts.json().toByteArray(Charsets.UTF_8)))
-                } else null
+                val body = when (path) {
+                    "start.json" -> StartShortcuts.json()
+                    "projects.json" -> dev.deepstellar.browser.projects.Projects.pageJson(ctx.applicationContext)
+                    else -> null
+                }
+                body?.let { WebResourceResponse("application/json", "utf-8", ByteArrayInputStream(it.toByteArray(Charsets.UTF_8))) }
             })
             .build()
 

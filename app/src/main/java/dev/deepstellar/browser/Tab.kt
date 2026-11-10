@@ -34,6 +34,9 @@ class Tab(val id: Long, var url: String, var desktop: Boolean) {
     val isLive: Boolean get() = webView != null
     val isStartPage: Boolean get() = url.startsWith(BrowserEngine.START_PAGE_PREFIX)
 
+    /** Pages that ship inside the app (start page, Projects). */
+    val isBuiltInPage: Boolean get() = url.startsWith("https://" + BrowserEngine.ASSET_HOST + "/")
+
     fun displayTitle(): String = when {
         isStartPage -> "New tab"
         title.isNotBlank() -> title

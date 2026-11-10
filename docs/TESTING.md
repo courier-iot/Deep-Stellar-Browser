@@ -22,6 +22,12 @@ Run through this on a real phone before tagging a release (two different phones/
 - [ ] Settings → Start page: turn off Recommended, then Your shortcuts → each section disappears when you return
 - [ ] Settings → Manage your shortcuts: move up / down / remove work
 
+## 2b. Projects page
+- [ ] The **Projects** tile opens the built-in page; each card opens the right repo
+- [ ] "Check every 6 hours" turns on; after a few seconds the page says "Checked GitHub … ago"
+- [ ] Push a commit or publish a release, tap **Check now**, reload → UPDATED / NEW RELEASE badge; it clears after you've seen it
+- [ ] Switch theme → the page recolours
+
 ## 3. Tabs & limits
 - [ ] Open tabs until the cap (Settings → Maximum tabs = 4) → the 5th is refused with a message
 - [ ] Tabs sheet: switch, close, close all others

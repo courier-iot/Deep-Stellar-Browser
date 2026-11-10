@@ -123,6 +123,11 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
     fun adopt(list: List<Tab>, currentId: Long?) {
         tabs += list
         nextId = (list.maxOfOrNull { it.id } ?: 0L) + 1
+        // Built-in pages carry the theme in their address; point them at the new one.
+        list.filter { it.url.startsWith(BrowserEngine.PROJECTS_PAGE_PREFIX) }.forEach {
+            it.savedState = null
+            it.url = BrowserEngine.projectsPageUrl()
+        }
         val target = list.firstOrNull { it.id == currentId } ?: list.firstOrNull() ?: return
         if (target.isStartPage) {
             // Rebuild the start page so it picks up the new theme.

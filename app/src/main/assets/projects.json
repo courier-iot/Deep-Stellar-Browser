@@ -1,0 +1,37 @@
+{
+  "_help": "The built-in project list. 'projects' are the featured cards, in order; 'repo' is the exact repository name on GitHub. 'more' are other repos shown as plain title cards.",
+  "githubUser": "courier-iot",
+  "title": "My projects",
+  "intro": "Open-source apps and games I build. Tap a card to open it on GitHub.",
+  "storeUrl": "",
+  "storeLabel": "Get my apps",
+  "projects": [
+    {
+      "repo": "Stellarite-Apps",
+      "name": "Stellarite Apps Launcher",
+      "description": "My personally built app launcher.",
+      "tag": "App launcher"
+    },
+    {
+      "repo": "CyberTxTs",
+      "name": "CyberTxTs",
+      "description": "Encrypted chats over your local network or across the internet.",
+      "tag": "Encrypted chat"
+    },
+    {
+      "repo": "Stellar-Dash",
+      "name": "Stellar Dash",
+      "description": "A reflex-based reaction platformer.",
+      "tag": "Game"
+    }
+  ],
+  "more": [
+    "Deep-Stellar-Browser",
+    "Brassworks",
+    "BrassTalks",
+    "Aether-Cam",
+    "Sunwire",
+    "FungUI",
+    "StellAI"
+  ]
+}

@@ -35,7 +35,7 @@ object BackupManager {
     private val MAGIC = byteArrayOf('D'.code.toByte(), 'S'.code.toByte(), 'B'.code.toByte(), 'K'.code.toByte())
     private const val VERSION: Byte = 1
     private const val ITERATIONS = 210_000
-    private val SKIP_PREFS = setOf("asked_notif")
+    private val SKIP_PREFS = setOf("asked_notif", "projects_state")
 
     class WrongPasswordException : Exception("Wrong password, or the file was changed")
 

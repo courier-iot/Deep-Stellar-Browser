@@ -23,6 +23,7 @@ dev.deepstellar.browser
 ├── Panic + PanicTileService  Quick Settings panic wipe (runs without opening the UI, then ends the process)
 ├── CrashLog          On-device crash reports with addresses scrubbed
 ├── StartShortcuts    Start-page sections + your shortcuts, served to start.html at /data/start.json
+├── projects/Projects  Built-in Projects page data (assets/projects.json) + optional 6-hourly GitHub check (WorkManager, ETag)
 ├── NetUtil               The only place the app opens its own HTTP connections (respects Tor)
 ├── Prefs                 Typed access to settings (SharedPreferences)
 │
@@ -41,6 +42,9 @@ dev.deepstellar.browser
                Themes, Ui helpers, Scaffold
 assets/
 ├── start.html     Starfield start page (theme passed as ?theme=)
+├── projects.html  Projects page; reads /data/projects.json from the app
+├── projects.json  The built-in project list (edit this to add repos)
+├── theme.js       Theme palettes shared by the built-in pages
 └── blocklist.txt  Bundled seed list of ad/tracker domains
 ```
 

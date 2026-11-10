@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<title>Projects</title>
+<style>
+  :root{
+    --void:#05060F; --surface:#0B0E1F; --surface2:#121633; --stroke:#26305A;
+    --star:#E8ECFF; --dim:#8A93C2; --violet:#9B7BFF; --blue:#5AB8FF;
+    --n1:123,92,255; --n2:90,184,255; --n3:255,122,217;
+    --g1:#E8ECFF; --g2:#B9A8FF; --g3:#8FD0FF; --orb1:#C9B8FF; --orb2:#7B5CFF; --orb3:#2A1F6E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%;background:var(--void);color:var(--star);
+    font-family:"Exo 2","Orbitron",ui-sans-serif,system-ui,sans-serif;overflow-x:hidden}
+  .nebula{position:fixed;inset:-20%;pointer-events:none;filter:blur(40px);opacity:.45;z-index:0;
+    background:
+      radial-gradient(40% 30% at 20% 15%, rgba(var(--n1),.35), transparent 70%),
+      radial-gradient(35% 28% at 85% 70%, rgba(var(--n2),.20), transparent 70%)}
+  main{position:relative;z-index:1;max-width:640px;margin:0 auto;padding:36px 16px 64px}
+  .label{font-size:10px;letter-spacing:.4em;color:var(--dim)}
+  h1{font-weight:300;font-size:clamp(26px,7vw,36px);letter-spacing:.12em;margin:10px 0 10px;
+    background:linear-gradient(90deg,var(--g1),var(--g2) 45%,var(--g3));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .intro{color:var(--dim);font-size:14px;line-height:1.55;margin-bottom:18px}
+  .links{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:999px;border:1px solid var(--stroke);
+    color:var(--star);text-decoration:none;font-size:13px;background:rgba(18,22,51,.55)}
+  .pill.primary{border-color:var(--violet);color:var(--violet)}
+  .cards{display:flex;flex-direction:column;gap:12px}
+  .card{display:block;text-decoration:none;color:inherit;border:1px solid var(--stroke);border-radius:16px;
+    padding:16px 16px 14px;background:linear-gradient(180deg,rgba(18,22,51,.75),rgba(11,14,31,.75));
+    transition:border-color .2s,transform .2s}
+  .card:active{transform:scale(.985);border-color:var(--blue)}
+  .row{display:flex;align-items:center;gap:12px}
+  .orb{flex:0 0 auto;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:600;
+    color:var(--void);background:radial-gradient(circle at 35% 30%,var(--orb1),var(--orb2) 60%,var(--orb3))}
+  .title{flex:1;min-width:0}
+  .name{font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .repo{font:12px ui-monospace,monospace;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .desc{color:var(--star);opacity:.85;font-size:14px;line-height:1.5;margin:12px 0 10px}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;font-size:11px;color:var(--dim)}
+  .row + .meta{margin-top:12px}
+  .chip{padding:3px 8px;border-radius:999px;border:1px solid var(--stroke)}
+  .badge{padding:3px 8px;border-radius:999px;font-weight:600;letter-spacing:.06em;color:var(--void)}
+  .badge.new{background:var(--violet)}
+  .badge.upd{background:var(--blue)}
+  .badge.rel{background:var(--g3)}
+  .section{margin:28px 0 12px}
+  .status{margin-top:28px;padding:14px 16px;border:1px dashed var(--stroke);border-radius:14px;color:var(--dim);font-size:13px;line-height:1.5}
+  .status a{color:var(--violet);text-decoration:none}
+  .empty{color:var(--dim);font-size:14px}
+</style>
+</head>
+<body>
+<div class="nebula"></div>
+<main>
+  <div class="label">DEEP STELLAR</div>
+  <h1 id="title">My projects</h1>
+  <p class="intro" id="intro"></p>
+  <div class="links" id="links"></div>
+  <div class="cards" id="cards"></div>
+  <div id="more"></div>
+  <div class="status" id="status"></div>
+</main>
+<script src="theme.js"></script>
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  if (window.dsApplyTheme) window.dsApplyTheme(params.get('theme'));
+
+  function el(tag, cls, text){ var e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+  function safe(u){ return /^https:\/\/(github\.com|[\w.-]+)\//i.test(u||'') ? u : '#'; }
+  function ago(ms){
+    if(!ms) return '';
+    var s=(Date.now()-ms)/1000, d=Math.floor(s/86400);
+    if(s<3600) return Math.max(1,Math.round(s/60))+' min ago';
+    if(s<86400) return Math.round(s/3600)+' h ago';
+    if(d<30) return d+' day'+(d===1?'':'s')+' ago';
+    return new Date(ms).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'});
+  }
+
+  var USER='';
+  function card(p){
+    var a=el('a','card'); a.href=safe(p.url);
+    var row=el('div','row');
+    row.appendChild(el('div','orb',(Array.from((p.name||'?').trim())[0]||'?').toUpperCase()));
+    var t=el('div','title'); t.appendChild(el('div','name',p.name)); t.appendChild(el('div','repo',p.repo || ('github.com/'+USER)));
+    row.appendChild(t); a.appendChild(row);
+    if(p.description) a.appendChild(el('p','desc',p.description));
+    var m=el('div','meta');
+    if(p.isNew) m.appendChild(el('span','badge new','NEW'));
+    if(p.newRelease) m.appendChild(el('span','badge rel','NEW RELEASE '+p.release));
+    else if(p.updated) m.appendChild(el('span','badge upd','UPDATED'));
+    if(p.tag) m.appendChild(el('span','chip',p.tag));
+    if(p.lang) m.appendChild(el('span','chip',p.lang));
+    if(p.release && !p.newRelease) m.appendChild(el('span','chip',p.release));
+    if(p.stars) m.appendChild(el('span','chip','★ '+p.stars));
+    if(p.pushedAt) m.appendChild(el('span','chip','updated '+ago(p.pushedAt)));
+    if(m.childNodes.length) a.appendChild(m);
+    return a;
+  }
+
+  fetch('/data/projects.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    USER=d.user||'';
+    document.title=d.title||'Projects';
+    document.getElementById('title').textContent=d.title||'My projects';
+    document.getElementById('intro').textContent=d.intro||'';
+
+    var links=document.getElementById('links');
+    if(d.configured){
+      var gh=el('a','pill','⌥  GitHub profile'); gh.href=safe(d.profileUrl); links.appendChild(gh);
+    }
+    if(d.storeUrl && /^https?:\/\//i.test(d.storeUrl)){
+      var st=el('a','pill primary','✦  '+(d.storeLabel||'Get my apps')); st.href=d.storeUrl; links.appendChild(st);
+    }
+
+    var cards=document.getElementById('cards'), more=document.getElementById('more');
+    var builtIn=(d.projects||[]).filter(function(p){return p.builtIn;});
+    var extra=(d.projects||[]).filter(function(p){return !p.builtIn;});
+    builtIn.forEach(function(p){ cards.appendChild(card(p)); });
+    if(!builtIn.length) cards.appendChild(el('p','empty','No projects listed yet.'));
+    if(extra.length){
+      more.appendChild(el('div','label section','MORE ON GITHUB'));
+      var box=el('div','cards'); extra.forEach(function(p){ box.appendChild(card(p)); }); more.appendChild(box);
+    }
+
+    var s=document.getElementById('status');
+    if(!d.configured){
+      s.textContent='Project list not set up yet (githubUser in assets/projects.json).';
+    } else if(!d.checkEnabled){
+      s.appendChild(document.createTextNode('Checking GitHub for new projects and updates is off. '));
+      var on=el('a',null,'Check every 6 hours'); on.href='dsb://projects-check-on'; s.appendChild(on);
+      s.appendChild(document.createTextNode(' — this contacts GitHub’s public API only, through your Tor setting.'));
+    } else {
+      var txt = d.error ? ('⚠ '+d.error+'. ') : (d.checkedAt ? ('Checked GitHub '+ago(d.checkedAt)+'. ') : 'First check pending. ');
+      s.appendChild(document.createTextNode(txt+'Checks every 6 hours. '));
+      var now=el('a',null,'Check now'); now.href='dsb://projects-check'; s.appendChild(now);
+    }
+  }).catch(function(){
+    document.getElementById('status').textContent='Couldn’t load the project list.';
+  });
+})();
+</script>
+</body>
+</html>
