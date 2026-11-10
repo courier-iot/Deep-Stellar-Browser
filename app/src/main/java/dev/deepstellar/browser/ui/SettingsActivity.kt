@@ -38,7 +38,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import dev.deepstellar.browser.history.HistoryStore
-import dev.deepstellar.browser.torrent.TorrentEngine
 
 class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
