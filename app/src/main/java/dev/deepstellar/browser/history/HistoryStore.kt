@@ -99,6 +99,24 @@ object HistoryStore {
         scheduleSave()
     }
 
+    /** Panic wipe: empty the history and delete the file immediately (keeps the feature on). */
+    fun clearNow() {
+        pendingSave?.cancel(false)
+        synchronized(this) { entries.clear() }
+        if (::file.isInitialized) file.delete()
+    }
+
+    /** Backup restore: replace everything and write it (encrypted with this phone's key) right now. */
+    fun replaceAllNow(list: List<HistoryEntry>) {
+        pendingSave?.cancel(false)
+        synchronized(this) {
+            entries.clear()
+            entries.addAll(list.sortedByDescending { it.time }.take(MAX_ENTRIES))
+        }
+        loaded = true
+        save()
+    }
+
     /** Called when the setting is switched on. */
     fun enable() = io.execute { load() }
 

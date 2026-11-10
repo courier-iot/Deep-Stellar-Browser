@@ -12,20 +12,21 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%;background:var(--void);color:var(--star);
-    font-family:"Exo 2","Orbitron","Eurostile",ui-sans-serif,system-ui,sans-serif;overflow:hidden}
+    font-family:"Exo 2","Orbitron","Eurostile",ui-sans-serif,system-ui,sans-serif;overflow-x:hidden}
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
+  :root{--n1:123,92,255;--n2:90,184,255;--n3:255,122,217;--g1:#E8ECFF;--g2:#B9A8FF;--g3:#8FD0FF;--orb1:#C9B8FF;--orb2:#7B5CFF;--orb3:#2A1F6E}
   .nebula{position:fixed;inset:-20%;pointer-events:none;filter:blur(40px);opacity:.55;
     background:
-      radial-gradient(40% 30% at 25% 30%, rgba(123,92,255,.35), transparent 70%),
-      radial-gradient(35% 28% at 78% 62%, rgba(90,184,255,.22), transparent 70%),
-      radial-gradient(28% 22% at 60% 18%, rgba(255,122,217,.14), transparent 70%);
+      radial-gradient(40% 30% at 25% 30%, rgba(var(--n1),.35), transparent 70%),
+      radial-gradient(35% 28% at 78% 62%, rgba(var(--n2),.22), transparent 70%),
+      radial-gradient(28% 22% at 60% 18%, rgba(var(--n3),.14), transparent 70%);
     animation:drift 60s ease-in-out infinite alternate}
   @keyframes drift{to{transform:translate3d(-4%,3%,0) rotate(4deg)}}
-  main{position:relative;z-index:2;height:100%;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;padding:24px 16px 12vh}
+  main{position:relative;z-index:2;min-height:100%;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:24px 16px 72px}
   .clock{font-variant-numeric:tabular-nums;font-size:13px;letter-spacing:.35em;color:var(--dim);margin-bottom:14px}
   h1{font-weight:300;font-size:clamp(26px,8vw,44px);letter-spacing:.32em;text-indent:.32em;
-    background:linear-gradient(90deg,#E8ECFF,#B9A8FF 45%,#8FD0FF);-webkit-background-clip:text;
+    background:linear-gradient(90deg,var(--g1),var(--g2) 45%,var(--g3));-webkit-background-clip:text;
     background-clip:text;color:transparent;text-shadow:0 0 30px rgba(155,123,255,.25)}
   .sub{font-size:11px;letter-spacing:.5em;text-indent:.5em;color:var(--dim);margin:8px 0 34px}
   form{width:min(560px,100%);position:relative}
@@ -34,11 +35,17 @@
     color:var(--star);font-size:16px;padding:0 54px 0 22px;outline:none;
     box-shadow:0 0 0 0 rgba(155,123,255,0);transition:box-shadow .3s,border-color .3s}
   input::placeholder{color:var(--dim)}
-  input:focus{border-color:var(--violet);box-shadow:0 0 24px rgba(155,123,255,.28)}
+  input:focus{border-color:var(--violet);box-shadow:0 0 24px rgba(var(--n1),.28)}
   button{position:absolute;right:6px;top:6px;width:40px;height:40px;border-radius:50%;border:0;
-    background:radial-gradient(circle at 35% 30%,#C9B8FF,#7B5CFF 60%,#2A1F6E);cursor:pointer}
+    background:radial-gradient(circle at 35% 30%,var(--orb1),var(--orb2) 60%,var(--orb3));cursor:pointer}
   button svg{width:18px;height:18px;fill:var(--void);margin-top:3px}
-  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;width:min(560px,100%);margin-top:30px}
+  .sec{width:min(560px,100%);margin-top:28px}
+  .sec[hidden]{display:none}
+  .label{font-size:10px;letter-spacing:.35em;color:var(--dim);opacity:.8;margin:0 0 14px 4px}
+  .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 12px;width:100%}
+  .tile{min-width:0}
+  .tile .name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tile.add .orb{border-style:dashed;color:var(--dim);font-size:22px;font-weight:300}
   .tile{display:flex;flex-direction:column;align-items:center;gap:8px;text-decoration:none;color:var(--dim);font-size:11px;letter-spacing:.06em}
   .orb{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;
     border:1px solid var(--stroke);background:rgba(11,14,31,.7);color:var(--star);font-size:16px;font-weight:600;
@@ -60,16 +67,23 @@
     <input id="q" type="search" placeholder="Search the void…" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="search">
     <button type="submit" aria-label="Search"><svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></button>
   </form>
-  <nav class="tiles">
-    <a class="tile" href="https://en.wikipedia.org"><span class="orb">W</span>Wikipedia</a>
-    <a class="tile" href="https://www.openstreetmap.org"><span class="orb">⌖</span>Maps</a>
-    <a class="tile" href="https://archive.org"><span class="orb">◷</span>Archive</a>
-    <a class="tile" href="https://github.com"><span class="orb">⌥</span>GitHub</a>
-    <a class="tile" href="https://apod.nasa.gov/apod/astropix.html"><span class="orb">✦</span>APOD</a>
-    <a class="tile" href="https://www.reddit.com/r/space"><span class="orb">◉</span>r/space</a>
-    <a class="tile" href="https://news.ycombinator.com"><span class="orb">Y</span>HN</a>
-    <a class="tile" href="dsb://bookmarks"><span class="orb">★</span>Bookmarks</a>
-  </nav>
+  <section class="sec" id="rec">
+    <div class="label">RECOMMENDED</div>
+    <nav class="tiles">
+      <a class="tile" href="https://en.wikipedia.org"><span class="orb">W</span><span class="name">Wikipedia</span></a>
+      <a class="tile" href="https://www.openstreetmap.org"><span class="orb">⌖</span><span class="name">Maps</span></a>
+      <a class="tile" href="https://archive.org"><span class="orb">◷</span><span class="name">Archive</span></a>
+      <a class="tile" href="https://github.com"><span class="orb">⌥</span><span class="name">GitHub</span></a>
+      <a class="tile" href="https://apod.nasa.gov/apod/astropix.html"><span class="orb">✦</span><span class="name">APOD</span></a>
+      <a class="tile" href="https://www.reddit.com/r/space"><span class="orb">◉</span><span class="name">r/space</span></a>
+      <a class="tile" href="https://news.ycombinator.com"><span class="orb">Y</span><span class="name">HN</span></a>
+      <a class="tile" href="dsb://bookmarks"><span class="orb">★</span><span class="name">Bookmarks</span></a>
+    </nav>
+  </section>
+  <section class="sec" id="mine" hidden>
+    <div class="label">YOUR SHORTCUTS</div>
+    <nav class="tiles" id="mineTiles"></nav>
+  </section>
 </main>
 <footer>NO HISTORY · NO TRACKING · NO TRACE</footer>
 <script>
@@ -78,11 +92,51 @@
   var still = params.get('still') === '1' || matchMedia('(prefers-reduced-motion: reduce)').matches;
   var fps = Math.max(5, Math.min(60, parseInt(params.get('fps') || '60', 10)));
 
+  // Theme palettes (match the app's themes).
+  var THEMES = {
+    nebula:    {void:'#05060F',surface:'#0B0E1F',surface2:'#121633',stroke:'#26305A',star:'#E8ECFF',dim:'#8A93C2',violet:'#9B7BFF',blue:'#5AB8FF',
+                n1:'123,92,255',n2:'90,184,255',n3:'255,122,217',g:['#E8ECFF','#B9A8FF','#8FD0FF'],orb:['#C9B8FF','#7B5CFF','#2A1F6E'],tint:['201,184,255','155,212,255']},
+    horizon:   {void:'#000000',surface:'#0A0A0A',surface2:'#141414',stroke:'#2A2A2A',star:'#F2F2F2',dim:'#8C8C8C',violet:'#FFA552',blue:'#FFE0A3',
+                n1:'255,140,60',n2:'255,90,50',n3:'255,220,160',g:['#FFFFFF','#FFD7A8','#FF9E4A'],orb:['#FFE0A3','#FF8A3D','#3A1200'],tint:['255,214,170','255,170,110']},
+    supernova: {void:'#0F0605',surface:'#1C0D0A',surface2:'#2A1410',stroke:'#4A2A22',star:'#FFF1E8',dim:'#C29A8A',violet:'#FF8A5C',blue:'#FFC857',
+                n1:'255,110,70',n2:'255,200,87',n3:'255,79,123',g:['#FFF1E8','#FFB38A','#FFC857'],orb:['#FFD9B0','#FF7A45','#4A120A'],tint:['255,200,160','255,170,200']},
+    aurora:    {void:'#03100E',surface:'#071C1A',surface2:'#0C2A27',stroke:'#1E4A44',star:'#E6FFF8',dim:'#86B8AE',violet:'#4FF0B5',blue:'#7FD7FF',
+                n1:'79,240,181',n2:'127,215,255',n3:'185,140,255',g:['#E6FFF8','#8FF5CF','#7FD7FF'],orb:['#C8FFEA','#2FD99A','#06352B'],tint:['170,255,220','170,225,255']}
+  };
+  var th = THEMES[params.get('theme')] || THEMES.nebula;
+  var rs = document.documentElement.style;
+  ['void','surface','surface2','stroke','star','dim','violet','blue'].forEach(function(k){ rs.setProperty('--'+k, th[k]); });
+  rs.setProperty('--n1', th.n1); rs.setProperty('--n2', th.n2); rs.setProperty('--n3', th.n3);
+  rs.setProperty('--g1', th.g[0]); rs.setProperty('--g2', th.g[1]); rs.setProperty('--g3', th.g[2]);
+  rs.setProperty('--orb1', th.orb[0]); rs.setProperty('--orb2', th.orb[1]); rs.setProperty('--orb3', th.orb[2]);
+  document.querySelector('meta[name=color-scheme]').setAttribute('content','dark');
+  document.body.style.background = th.void;
+
   document.getElementById('f').addEventListener('submit', function(e){
     e.preventDefault();
     var v = document.getElementById('q').value.trim();
     if (v) location.href = 'dsb://search?q=' + encodeURIComponent(v);
   });
+
+  // ---- Sections: Recommended + Your shortcuts (settings come from the app; nothing leaves the phone)
+  function tile(href, glyph, name, extraClass){
+    var a=document.createElement('a'); a.className='tile'+(extraClass?' '+extraClass:''); a.href=href;
+    var o=document.createElement('span'); o.className='orb'; o.textContent=glyph;
+    var n=document.createElement('span'); n.className='name'; n.textContent=name;
+    a.appendChild(o); a.appendChild(n); return a;
+  }
+  function firstGlyph(s){ var c=Array.from((s||'?').trim())[0]||'?'; return c.toUpperCase(); }
+  fetch('/data/start.json',{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+    document.getElementById('rec').hidden = !d.showRec;
+    var sec=document.getElementById('mine'), box=document.getElementById('mineTiles');
+    sec.hidden = !d.showMine;
+    box.textContent='';
+    (d.mine||[]).forEach(function(s){
+      if(!/^https?:\/\//i.test(s.url)) return;
+      box.appendChild(tile(s.url, firstGlyph(s.name), s.name||s.url));
+    });
+    if((d.mine||[]).length < (d.max||32)) box.appendChild(tile('dsb://shortcut-add','+','Add','add'));
+  }).catch(function(){ /* settings unavailable: show Recommended only */ });
 
   function tick(){
     var d = new Date();
@@ -107,7 +161,7 @@
         v: (layer < .7 ? .02 : layer < .93 ? .05 : .11) * dpr,
         a: .35 + Math.random() * .65,
         tw: Math.random() < .25 ? Math.random() * Math.PI * 2 : -1,
-        hue: Math.random() < .12 ? (Math.random() < .5 ? '201,184,255' : '155,212,255') : '232,236,255'
+        hue: Math.random() < .12 ? (Math.random() < .5 ? th.tint[0] : th.tint[1]) : '232,236,255'
       });
     }
     draw(0);

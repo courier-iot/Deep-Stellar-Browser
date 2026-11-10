@@ -18,6 +18,18 @@ A private, deep-space themed Android browser. Free and open source, no telemetry
 | **Torrents** | Built-in BitTorrent client (libtorrent). Magnet links and `.torrent` files, speed limits, optional seeding. Saved to `Download/DeepStellar/Torrents`. |
 | **Bookmarks** | Import/export in the standard bookmark HTML format — works with Firefox, Chrome, Brave, Edge, Tor Browser, DuckDuckGo, Vivaldi, Safari. |
 | **Address bar suggestions** | Matches your bookmarks (★) and, if history is on, your history (◷) as you type, ranked by how well it matches, how often you visit and how recently. Matched on the phone — nothing you type goes to a search engine until you press Go. Tap ↖ to copy a suggestion into the bar and edit it. |
+| **Clean links** | Strips tracking tags (`utm_*`, `fbclid`, `gclid`, `msclkid` …) and unwraps Google / Facebook / DuckDuckGo / YouTube / Reddit click-through redirects before a page loads. |
+| **Find in page** | Live match count, next/previous. |
+| **Reader mode** | Strips a page down to the article and re-lays it out in your theme, with reading time. Back or the menu returns to the page. |
+| **Themes** | Nebula (violet & blue), Event Horizon (pure black for OLED, accretion-disk orange), Supernova (coral & gold), Aurora (green & teal). The start page follows the theme. Switching keeps your open tabs. |
+| **Under the hood** | Menu → Under the hood. *Who's watching*: every outside company the page contacted, what was blocked and why, with one-tap blocking. *Network*: every request (type, 1st/3rd-party, verdict). *Console*: the page's JS logs and errors. *Certificate*: issuer, validity, SHA-256 fingerprint. *Source*: highlighted page source; JSON is pretty-printed, XML re-indented, and `.md` files can be rendered. |
+| **QR share & scan** | Show the current page as a QR code for another device — no sync account. Scanner has continuous autofocus, **tap-to-focus**, pinch/slider zoom and torch, and can read codes from a saved image. Decoding is on-device (ZXing); links open inside Deep Stellar. |
+| **Encrypted backup** | Settings → Backup. One `.dsbackup` file with settings, bookmarks, your block list, and optionally history and the learned ad model — AES-256-GCM with a PBKDF2 password key. Restore on any phone; history is re-encrypted with the new phone's hardware key. **Automatic backups** run daily / every 3 days / weekly (optionally only while charging) to a folder you pick, keeping the newest 3–20. Your password isn't stored — only a key made from it, locked in the phone's secure hardware — and every automatic file still opens with that password. |
+| **Start page** | Two sections, each switchable: *Recommended* (the built-in tiles) and *Your shortcuts* (add with ＋, Menu → Add to start page, or long-press a tile; edit/reorder in Settings). Tiles show a letter — no icons are fetched, so the start page never contacts those sites. |
+| **App lock** | Optional. Fingerprint, face or screen-lock PIN to open the browser — right away or after 1 / 5 / 15 minutes away. File pickers and share sheets the browser opens don't count as leaving. Blanks the Recents preview (Android 13+). |
+| **Panic wipe tile** | A Quick Settings button: stops downloads and torrents, wipes cookies, cache and site data (optionally history), removes the app from Recents and ends it — works from the lock screen and skips the app lock. Saved downloads stay. |
+| **Filter list updates** | Manual, or automatic weekly / every 2 weeks / monthly (Wi-Fi only by default). Uses your Tor setting. |
+| **Crash reports** | Saved only on the phone, with web addresses blanked out. View, share or delete them in Settings — nothing is ever sent automatically. |
 | **Desktop mode** | Per tab, from the menu. Or on by default in Settings. |
 
 ## Build it (GitHub only, no Android Studio)
@@ -81,6 +93,10 @@ app/src/main/java/dev/deepstellar/browser/
   ui/                    settings, bookmarks, transfers screens
 app/src/main/assets/start.html   the starfield start page
 ```
+
+## Contributing
+
+Pull requests welcome — read [CONTRIBUTING.md](CONTRIBUTING.md) (privacy ground rules, setup, style) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (code map and how a page load flows).
 
 ## License
 

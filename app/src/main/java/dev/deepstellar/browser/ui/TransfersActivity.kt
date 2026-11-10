@@ -1,5 +1,6 @@
 package dev.deepstellar.browser.ui
 
+import dev.deepstellar.browser.AppLock
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -45,6 +46,7 @@ class TransfersActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -53,7 +55,7 @@ class TransfersActivity : AppCompatActivity() {
         val bar = scaffold(getString(R.string.transfers), ScrollView(this).apply { addView(list) })
         bar.menu.add("Add magnet link").setOnMenuItemClickListener { askMagnet(); true }
         bar.menu.add("Open .torrent file").setOnMenuItemClickListener {
-            pickTorrent.launch(arrayOf("application/x-bittorrent", "application/octet-stream", "*/*")); true
+            AppLock.expectExternal(); pickTorrent.launch(arrayOf("application/x-bittorrent", "application/octet-stream", "*/*")); true
         }
         bar.menu.add("Clear finished").setOnMenuItemClickListener {
             DownloadEngine.clearFinished()

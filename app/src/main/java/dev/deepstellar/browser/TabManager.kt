@@ -97,6 +97,41 @@ class TabManager(private val ctx: Context, private val host: BrowserHost) {
         }
     }
 
+    /**
+     * Used when the screen is rebuilt (e.g. theme change): every tab keeps its
+     * back/forward list in memory, its WebView is released, and [adopt] wakes
+     * them up again in the new screen.
+     */
+    fun detachForRecreate(): Pair<List<Tab>, Long?> {
+        val cur = current?.id
+        tabs.forEach { t ->
+            t.webView?.let { wv ->
+                val b = android.os.Bundle()
+                runCatching { wv.saveState(b) }
+                t.savedState = b
+                destroyView(wv)
+            }
+            t.webView = null
+            t.throttleScript = null
+        }
+        val list = tabs.toList()
+        tabs.clear()
+        current = null
+        return list to cur
+    }
+
+    fun adopt(list: List<Tab>, currentId: Long?) {
+        tabs += list
+        nextId = (list.maxOfOrNull { it.id } ?: 0L) + 1
+        val target = list.firstOrNull { it.id == currentId } ?: list.firstOrNull() ?: return
+        if (target.isStartPage) {
+            // Rebuild the start page so it picks up the new theme.
+            target.savedState = null
+            target.url = BrowserEngine.startPageUrl()
+        }
+        switchTo(target)
+    }
+
     fun closeAll() {
         tabs.toList().forEach { t ->
             t.webView?.let { destroyView(it) }

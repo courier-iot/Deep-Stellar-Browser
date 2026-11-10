@@ -48,6 +48,13 @@ object BookmarkStore {
 
     @Synchronized fun clear() { list.clear(); save() }
 
+    /** Used by backup restore. */
+    @Synchronized fun replaceAll(items: List<Bookmark>) {
+        list.clear()
+        list.addAll(items)
+        save()
+    }
+
     private fun load() {
         list.clear()
         if (!file.exists()) return

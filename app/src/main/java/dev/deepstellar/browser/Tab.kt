@@ -22,6 +22,14 @@ class Tab(val id: Long, var url: String, var desktop: Boolean) {
     /** Host the user agreed to load over plain HTTP despite HTTPS-only mode. */
     var httpAllowedHost: String? = null
     var throttleScript: ScriptHandler? = null
+    /** Last URL the tracker cleaner produced (guards against redirect loops). */
+    var lastCleaned: String? = null
+    /** Under-the-hood logs for the current page (memory only). */
+    val net = dev.deepstellar.browser.inspect.RequestLog()
+    val console = dev.deepstellar.browser.inspect.ConsoleLog()
+
+    /** True while reader mode is showing. */
+    var readerMode: Boolean = false
 
     val isLive: Boolean get() = webView != null
     val isStartPage: Boolean get() = url.startsWith(BrowserEngine.START_PAGE_PREFIX)

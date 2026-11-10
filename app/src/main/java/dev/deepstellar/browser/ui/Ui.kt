@@ -33,7 +33,24 @@ object Ui {
     fun dp(ctx: Context, v: Int): Int =
         TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, v.toFloat(), ctx.resources.displayMetrics).toInt()
 
-    fun color(ctx: Context, id: Int) = ContextCompat.getColor(ctx, id)
+    /** Palette color ids are resolved through the active theme, so every theme variant recolors the UI. */
+    private val PALETTE = mapOf(
+        R.color.void_black to R.attr.dsBg,
+        R.color.void_surface to R.attr.dsSurface,
+        R.color.void_surface_2 to R.attr.dsSurface2,
+        R.color.void_stroke to R.attr.dsStroke,
+        R.color.starlight to R.attr.dsText,
+        R.color.starlight_dim to R.attr.dsTextDim,
+        R.color.nebula_violet to R.attr.dsAccent,
+        R.color.cosmic_blue to R.attr.dsAccent2,
+        R.color.nova_pink to R.attr.dsAccent3,
+    )
+
+    fun color(ctx: Context, id: Int): Int {
+        val attr = PALETTE[id] ?: return ContextCompat.getColor(ctx, id)
+        val tv = TypedValue()
+        return if (ctx.theme.resolveAttribute(attr, tv, true)) tv.data else ContextCompat.getColor(ctx, id)
+    }
 
     fun title(ctx: Context, text: String, sizeSp: Float = 15f): TextView = TextView(ctx).apply {
         this.text = text
@@ -66,7 +83,7 @@ object Ui {
         val tv = TypedValue()
         ctx.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true)
         setBackgroundResource(tv.resourceId)
-        ImageViewCompat.setImageTintList(this, ContextCompat.getColorStateList(ctx, R.color.starlight_dim))
+        ImageViewCompat.setImageTintList(this, android.content.res.ColorStateList.valueOf(color(ctx, R.color.starlight_dim)))
         layoutParams = LinearLayout.LayoutParams(dp(ctx, 44), dp(ctx, 44))
         setOnClickListener { onClick() }
     }

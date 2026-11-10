@@ -8,6 +8,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Only used by the QR scanner, and only after you tap "Scan". -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:name=".DeepStellarApp"
@@ -75,9 +79,34 @@
             android:excludeFromRecents="true"
             android:label="History" />
         <activity
+            android:name=".ui.InspectorActivity"
+            android:exported="false"
+            android:label="Under the hood" />
+        <activity
+            android:name=".ui.QrActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:label="QR code" />
+        <activity
             android:name=".ui.TransfersActivity"
             android:exported="false"
             android:label="@string/transfers" />
+
+        <activity
+            android:name=".ui.LockActivity"
+            android:exported="false"
+            android:label="@string/app_name" />
+
+        <service
+            android:name=".PanicTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_panic"
+            android:label="Panic wipe"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
 
         <service
             android:name=".downloads.TransferService"

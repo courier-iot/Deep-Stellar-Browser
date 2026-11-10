@@ -3,7 +3,7 @@
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/void_black">
+    android:background="?attr/dsBg">
 
     <LinearLayout
         android:id="@+id/chrome"
@@ -16,7 +16,7 @@
             android:id="@+id/topBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/void_black"
+            android:background="?attr/dsBg"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:paddingStart="6dp"
@@ -31,7 +31,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/shield"
                 android:src="@drawable/ic_shield"
-                app:tint="@color/nebula_violet"
+                app:tint="?attr/dsAccent"
                 xmlns:app="http://schemas.android.com/apk/res-auto" />
 
             <EditText
@@ -51,8 +51,8 @@
                 android:paddingEnd="16dp"
                 android:selectAllOnFocus="true"
                 android:singleLine="true"
-                android:textColor="@color/starlight"
-                android:textColorHint="@color/starlight_dim"
+                android:textColor="?attr/dsText"
+                android:textColorHint="?attr/dsTextDim"
                 android:textSize="14sp" />
 
             <TextView
@@ -66,7 +66,7 @@
                 android:fontFamily="monospace"
                 android:gravity="center"
                 android:text="1"
-                android:textColor="@color/cosmic_blue"
+                android:textColor="?attr/dsAccent2"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -77,8 +77,59 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/menu"
                 android:src="@drawable/ic_more"
-                app:tint="@color/starlight"
+                app:tint="?attr/dsText"
                 xmlns:app="http://schemas.android.com/apk/res-auto" />
+        </LinearLayout>
+
+        <!-- Find in page -->
+        <LinearLayout
+            android:id="@+id/findBar"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:background="?attr/dsSurface"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="12dp"
+            android:paddingEnd="4dp"
+            android:visibility="gone"
+            xmlns:app="http://schemas.android.com/apk/res-auto">
+
+            <EditText
+                android:id="@+id/findInput"
+                android:layout_width="0dp"
+                android:layout_height="38dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_urlbar"
+                android:hint="Find in page"
+                android:imeOptions="actionSearch|flagNoPersonalizedLearning|flagNoExtractUi"
+                android:importantForAutofill="no"
+                android:inputType="text|textNoSuggestions"
+                android:paddingStart="14dp"
+                android:paddingEnd="14dp"
+                android:singleLine="true"
+                android:textColor="?attr/dsText"
+                android:textColorHint="?attr/dsTextDim"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/findCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:minWidth="56dp"
+                android:gravity="center"
+                android:textColor="?attr/dsTextDim"
+                android:textSize="12sp" />
+
+            <ImageButton android:id="@+id/findPrev" android:layout_width="40dp" android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="Previous match"
+                android:rotation="90" android:src="@drawable/ic_back" app:tint="?attr/dsText" />
+            <ImageButton android:id="@+id/findNext" android:layout_width="40dp" android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="Next match"
+                android:rotation="-90" android:src="@drawable/ic_back" app:tint="?attr/dsText" />
+            <ImageButton android:id="@+id/findClose" android:layout_width="40dp" android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="Close find"
+                android:src="@drawable/ic_close" app:tint="?attr/dsTextDim" />
         </LinearLayout>
 
         <ProgressBar
@@ -95,7 +146,7 @@
             android:id="@+id/suggestScroll"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/void_surface"
+            android:background="?attr/dsSurface"
             android:visibility="gone">
             <LinearLayout
                 android:id="@+id/suggestList"
@@ -110,7 +161,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:background="@color/void_black" />
+            android:background="?attr/dsBg" />
 
         <!-- Bottom bar -->
         <LinearLayout
@@ -124,19 +175,19 @@
 
             <ImageButton android:id="@+id/btnBack" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/back"
-                android:src="@drawable/ic_back" app:tint="@color/starlight" />
+                android:src="@drawable/ic_back" app:tint="?attr/dsText" />
             <ImageButton android:id="@+id/btnForward" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/forward"
-                android:src="@drawable/ic_forward" app:tint="@color/starlight" />
+                android:src="@drawable/ic_forward" app:tint="?attr/dsText" />
             <ImageButton android:id="@+id/btnHome" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/home"
-                android:src="@drawable/ic_home" app:tint="@color/cosmic_blue" />
+                android:src="@drawable/ic_home" app:tint="?attr/dsAccent2" />
             <ImageButton android:id="@+id/btnBookmark" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/bookmarks"
-                android:src="@drawable/ic_star" app:tint="@color/starlight" />
+                android:src="@drawable/ic_star" app:tint="?attr/dsText" />
             <ImageButton android:id="@+id/btnReload" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1"
                 android:background="?attr/selectableItemBackgroundBorderless" android:contentDescription="@string/reload"
-                android:src="@drawable/ic_reload" app:tint="@color/starlight" />
+                android:src="@drawable/ic_reload" app:tint="?attr/dsText" />
         </LinearLayout>
     </LinearLayout>
 

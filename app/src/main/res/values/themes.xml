@@ -1,34 +1,128 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- nebula -->
     <style name="Theme.DeepStellar" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">@color/nebula_violet</item>
-        <item name="colorOnPrimary">@color/void_black</item>
-        <item name="colorPrimaryContainer">@color/void_surface_2</item>
-        <item name="colorOnPrimaryContainer">@color/starlight</item>
-        <item name="colorSecondary">@color/cosmic_blue</item>
-        <item name="colorOnSecondary">@color/void_black</item>
-        <item name="colorTertiary">@color/nova_pink</item>
-        <item name="colorSurface">@color/void_surface</item>
-        <item name="colorOnSurface">@color/starlight</item>
-        <item name="colorSurfaceVariant">@color/void_surface_2</item>
-        <item name="colorOnSurfaceVariant">@color/starlight_dim</item>
-        <item name="colorSurfaceContainer">@color/void_surface</item>
-        <item name="colorSurfaceContainerHigh">@color/void_surface_2</item>
-        <item name="colorSurfaceContainerLow">@color/void_surface</item>
-        <item name="colorOutline">@color/void_stroke</item>
-        <item name="android:colorBackground">@color/void_black</item>
-        <item name="android:windowBackground">@color/void_black</item>
+        <item name="dsBg">#05060F</item>
+        <item name="dsSurface">#0B0E1F</item>
+        <item name="dsSurface2">#121633</item>
+        <item name="dsStroke">#26305A</item>
+        <item name="dsText">#E8ECFF</item>
+        <item name="dsTextDim">#8A93C2</item>
+        <item name="dsAccent">#9B7BFF</item>
+        <item name="dsAccent2">#5AB8FF</item>
+        <item name="dsAccent3">#FF7AD9</item>
+        <item name="colorPrimary">#9B7BFF</item>
+        <item name="colorOnPrimary">#05060F</item>
+        <item name="colorPrimaryContainer">#121633</item>
+        <item name="colorOnPrimaryContainer">#E8ECFF</item>
+        <item name="colorSecondary">#5AB8FF</item>
+        <item name="colorOnSecondary">#05060F</item>
+        <item name="colorTertiary">#FF7AD9</item>
+        <item name="colorSurface">#0B0E1F</item>
+        <item name="colorOnSurface">#E8ECFF</item>
+        <item name="colorSurfaceVariant">#121633</item>
+        <item name="colorOnSurfaceVariant">#8A93C2</item>
+        <item name="colorSurfaceContainer">#0B0E1F</item>
+        <item name="colorSurfaceContainerHigh">#121633</item>
+        <item name="colorSurfaceContainerHighest">#121633</item>
+        <item name="colorSurfaceContainerLow">#0B0E1F</item>
+        <item name="colorOutline">#26305A</item>
+        <item name="android:colorBackground">#05060F</item>
+        <item name="android:windowBackground">#05060F</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowLightNavigationBar">false</item>
         <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
     </style>
-
-    <style name="DS.IconButton" parent="Widget.Material3.Button.IconButton">
-        <item name="iconTint">@color/starlight</item>
-        <item name="iconSize">22dp</item>
-        <item name="android:minWidth">44dp</item>
-        <item name="android:minHeight">44dp</item>
+    <!-- horizon -->
+    <style name="Theme.DeepStellar.Horizon" parent="Theme.DeepStellar">
+        <item name="dsBg">#000000</item>
+        <item name="dsSurface">#0A0A0A</item>
+        <item name="dsSurface2">#141414</item>
+        <item name="dsStroke">#2A2A2A</item>
+        <item name="dsText">#F2F2F2</item>
+        <item name="dsTextDim">#8C8C8C</item>
+        <item name="dsAccent">#FFA552</item>
+        <item name="dsAccent2">#FFE0A3</item>
+        <item name="dsAccent3">#FF5E3A</item>
+        <item name="colorPrimary">#FFA552</item>
+        <item name="colorOnPrimary">#000000</item>
+        <item name="colorPrimaryContainer">#141414</item>
+        <item name="colorOnPrimaryContainer">#F2F2F2</item>
+        <item name="colorSecondary">#FFE0A3</item>
+        <item name="colorOnSecondary">#000000</item>
+        <item name="colorTertiary">#FF5E3A</item>
+        <item name="colorSurface">#0A0A0A</item>
+        <item name="colorOnSurface">#F2F2F2</item>
+        <item name="colorSurfaceVariant">#141414</item>
+        <item name="colorOnSurfaceVariant">#8C8C8C</item>
+        <item name="colorSurfaceContainer">#0A0A0A</item>
+        <item name="colorSurfaceContainerHigh">#141414</item>
+        <item name="colorSurfaceContainerHighest">#141414</item>
+        <item name="colorSurfaceContainerLow">#0A0A0A</item>
+        <item name="colorOutline">#2A2A2A</item>
+        <item name="android:colorBackground">#000000</item>
+        <item name="android:windowBackground">#000000</item>
+    </style>
+    <!-- supernova -->
+    <style name="Theme.DeepStellar.Supernova" parent="Theme.DeepStellar">
+        <item name="dsBg">#0F0605</item>
+        <item name="dsSurface">#1C0D0A</item>
+        <item name="dsSurface2">#2A1410</item>
+        <item name="dsStroke">#4A2A22</item>
+        <item name="dsText">#FFF1E8</item>
+        <item name="dsTextDim">#C29A8A</item>
+        <item name="dsAccent">#FF8A5C</item>
+        <item name="dsAccent2">#FFC857</item>
+        <item name="dsAccent3">#FF4F7B</item>
+        <item name="colorPrimary">#FF8A5C</item>
+        <item name="colorOnPrimary">#0F0605</item>
+        <item name="colorPrimaryContainer">#2A1410</item>
+        <item name="colorOnPrimaryContainer">#FFF1E8</item>
+        <item name="colorSecondary">#FFC857</item>
+        <item name="colorOnSecondary">#0F0605</item>
+        <item name="colorTertiary">#FF4F7B</item>
+        <item name="colorSurface">#1C0D0A</item>
+        <item name="colorOnSurface">#FFF1E8</item>
+        <item name="colorSurfaceVariant">#2A1410</item>
+        <item name="colorOnSurfaceVariant">#C29A8A</item>
+        <item name="colorSurfaceContainer">#1C0D0A</item>
+        <item name="colorSurfaceContainerHigh">#2A1410</item>
+        <item name="colorSurfaceContainerHighest">#2A1410</item>
+        <item name="colorSurfaceContainerLow">#1C0D0A</item>
+        <item name="colorOutline">#4A2A22</item>
+        <item name="android:colorBackground">#0F0605</item>
+        <item name="android:windowBackground">#0F0605</item>
+    </style>
+    <!-- aurora -->
+    <style name="Theme.DeepStellar.Aurora" parent="Theme.DeepStellar">
+        <item name="dsBg">#03100E</item>
+        <item name="dsSurface">#071C1A</item>
+        <item name="dsSurface2">#0C2A27</item>
+        <item name="dsStroke">#1E4A44</item>
+        <item name="dsText">#E6FFF8</item>
+        <item name="dsTextDim">#86B8AE</item>
+        <item name="dsAccent">#4FF0B5</item>
+        <item name="dsAccent2">#7FD7FF</item>
+        <item name="dsAccent3">#B98CFF</item>
+        <item name="colorPrimary">#4FF0B5</item>
+        <item name="colorOnPrimary">#03100E</item>
+        <item name="colorPrimaryContainer">#0C2A27</item>
+        <item name="colorOnPrimaryContainer">#E6FFF8</item>
+        <item name="colorSecondary">#7FD7FF</item>
+        <item name="colorOnSecondary">#03100E</item>
+        <item name="colorTertiary">#B98CFF</item>
+        <item name="colorSurface">#071C1A</item>
+        <item name="colorOnSurface">#E6FFF8</item>
+        <item name="colorSurfaceVariant">#0C2A27</item>
+        <item name="colorOnSurfaceVariant">#86B8AE</item>
+        <item name="colorSurfaceContainer">#071C1A</item>
+        <item name="colorSurfaceContainerHigh">#0C2A27</item>
+        <item name="colorSurfaceContainerHighest">#0C2A27</item>
+        <item name="colorSurfaceContainerLow">#071C1A</item>
+        <item name="colorOutline">#1E4A44</item>
+        <item name="android:colorBackground">#03100E</item>
+        <item name="android:windowBackground">#03100E</item>
     </style>
 </resources>

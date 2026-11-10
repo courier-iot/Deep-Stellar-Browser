@@ -30,4 +30,62 @@
         <item>365</item>
         <item>0</item>
     </string-array>
+    <string-array name="theme_names">
+        <item>Nebula — violet &amp; blue</item>
+        <item>Event Horizon — pure black (OLED)</item>
+        <item>Supernova — coral &amp; gold</item>
+        <item>Aurora — green &amp; teal</item>
+    </string-array>
+    <string-array name="theme_values">
+        <item>nebula</item>
+        <item>horizon</item>
+        <item>supernova</item>
+        <item>aurora</item>
+    </string-array>
+    <string-array name="auto_freq_names">
+        <item>Every day</item>
+        <item>Every 3 days</item>
+        <item>Every week</item>
+    </string-array>
+    <string-array name="auto_freq_values">
+        <item>1</item>
+        <item>3</item>
+        <item>7</item>
+    </string-array>
+    <string-array name="auto_keep_names">
+        <item>3 backups</item>
+        <item>5 backups</item>
+        <item>10 backups</item>
+        <item>20 backups</item>
+    </string-array>
+    <string-array name="auto_keep_values">
+        <item>3</item>
+        <item>5</item>
+        <item>10</item>
+        <item>20</item>
+    </string-array>
+    <string-array name="filter_auto_names">
+        <item>Off — only when I tap Update</item>
+        <item>Weekly</item>
+        <item>Every 2 weeks</item>
+        <item>Monthly</item>
+    </string-array>
+    <string-array name="filter_auto_values">
+        <item>0</item>
+        <item>7</item>
+        <item>14</item>
+        <item>30</item>
+    </string-array>
+    <string-array name="app_lock_after_names">
+        <item>Right away</item>
+        <item>After 1 minute</item>
+        <item>After 5 minutes</item>
+        <item>After 15 minutes</item>
+    </string-array>
+    <string-array name="app_lock_after_values">
+        <item>0</item>
+        <item>60</item>
+        <item>300</item>
+        <item>900</item>
+    </string-array>
 </resources>

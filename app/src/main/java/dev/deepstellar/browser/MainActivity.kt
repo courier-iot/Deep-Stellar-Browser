@@ -1,5 +1,6 @@
 package dev.deepstellar.browser
 
+import dev.deepstellar.browser.AppLock
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.SearchManager
@@ -56,7 +57,13 @@ import dev.deepstellar.browser.history.HistoryStore
 import dev.deepstellar.browser.history.SuggestionEngine
 import dev.deepstellar.browser.ui.BookmarksActivity
 import dev.deepstellar.browser.ui.HistoryActivity
+import dev.deepstellar.browser.inspect.Inspector
+import dev.deepstellar.browser.inspect.MarkdownView
 import dev.deepstellar.browser.ui.Format
+import dev.deepstellar.browser.ui.ShortcutDialogs
+import dev.deepstellar.browser.ui.InspectorActivity
+import dev.deepstellar.browser.ui.QrActivity
+import dev.deepstellar.browser.ui.Themes
 import dev.deepstellar.browser.ui.SettingsActivity
 import dev.deepstellar.browser.ui.TransfersActivity
 import dev.deepstellar.browser.ui.Ui
@@ -73,6 +80,9 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     private lateinit var btnShield: ImageButton
     private lateinit var suggestScroll: ScrollView
     private lateinit var suggestList: LinearLayout
+    private lateinit var findBar: View
+    private lateinit var findInput: EditText
+    private lateinit var findCount: TextView
 
     private var customView: View? = null
     private var customViewCallback: WebChromeClient.CustomViewCallback? = null
@@ -90,7 +100,10 @@ class MainActivity : AppCompatActivity(), BrowserHost {
 
     // ================================================================ lifecycle
 
+    private var appliedTheme = ""
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        appliedTheme = Themes.apply(this)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         setContentView(R.layout.activity_main)
@@ -104,6 +117,10 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         btnShield = findViewById(R.id.btnShield)
         suggestScroll = findViewById(R.id.suggestScroll)
         suggestList = findViewById(R.id.suggestList)
+        findBar = findViewById(R.id.findBar)
+        findInput = findViewById(R.id.findInput)
+        findCount = findViewById(R.id.findCount)
+        wireFindBar()
 
         val chrome = findViewById<View>(R.id.chrome)
         ViewCompat.setOnApplyWindowInsetsListener(chrome) { v, insets ->
@@ -123,7 +140,13 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             override fun handleOnBackPressed() = onBack()
         })
 
-        if (!handleIntent(intent)) tabs.open(BrowserEngine.startPageUrl())
+        val carried = carriedTabs
+        carriedTabs = null
+        if (carried != null && carried.first.isNotEmpty()) {
+            tabs.adopt(carried.first, carried.second)
+        } else if (!handleIntent(intent)) {
+            tabs.open(BrowserEngine.startPageUrl())
+        }
         ResourceGovernor.attach(tabs)
     }
 
@@ -134,9 +157,27 @@ class MainActivity : AppCompatActivity(), BrowserHost {
 
     override fun onResume() {
         super.onResume()
+        if (Themes.current != appliedTheme) {
+            // New theme: keep every tab (and its back history) in memory and rebuild the screen.
+            carriedTabs = tabs.detachForRecreate()
+            webContainer.removeAllViews()
+            recreate()
+            return
+        }
         applyGlobalSettings()
         tabs.current?.webView?.onResume()
+        // Start-page sections or shortcuts changed in Settings → refresh open start pages.
+        val sig = StartShortcuts.json()
+        if (startSig != null && sig != startSig) reloadStartPages()
+        startSig = sig
         updateChrome()
+    }
+
+    private var startSig: String? = null
+
+    private fun reloadStartPages() {
+        startSig = StartShortcuts.json()
+        tabs.tabs.filter { it.isStartPage }.forEach { it.webView?.reload() }
     }
 
     override fun onPause() {
@@ -175,7 +216,8 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         return false
     }
 
-    private fun openUrlFromOutside(url: String) {
+    private fun openUrlFromOutside(rawUrl: String) {
+        val url = UrlCleaner.clean(rawUrl)
         if (tabs.open(url) == null) {
             // Tab cap reached: load in the current tab instead.
             tabs.current?.webView?.loadUrl(url, TabManager.extraHeaders())
@@ -226,6 +268,83 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         tabCount.setOnLongClickListener { newTab(); true }
         findViewById<View>(R.id.btnMenu).setOnClickListener { showMenuSheet() }
         btnShield.setOnClickListener { showShieldSheet() }
+    }
+
+    // ================================================================ find in page
+
+    private fun wireFindBar() {
+        findInput.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val wv = tabs.current?.webView ?: return
+                val q = s?.toString().orEmpty()
+                if (q.isEmpty()) { wv.clearMatches(); findCount.text = "" } else wv.findAllAsync(q)
+            }
+        })
+        findInput.setOnEditorActionListener { _, _, _ -> tabs.current?.webView?.findNext(true); true }
+        findViewById<View>(R.id.findNext).setOnClickListener { tabs.current?.webView?.findNext(true) }
+        findViewById<View>(R.id.findPrev).setOnClickListener { tabs.current?.webView?.findNext(false) }
+        findViewById<View>(R.id.findClose).setOnClickListener { closeFind() }
+    }
+
+    private fun openFind() {
+        val wv = tabs.current?.webView ?: return
+        wv.setFindListener { active, total, done ->
+            if (done) findCount.text = if (total == 0) "0/0" else "${active + 1}/$total"
+        }
+        findBar.visibility = View.VISIBLE
+        findInput.setText("")
+        findInput.requestFocus()
+        getSystemService(InputMethodManager::class.java)?.showSoftInput(findInput, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun closeFind() {
+        tabs.current?.webView?.let { it.clearMatches(); it.setFindListener(null) }
+        findBar.visibility = View.GONE
+        findCount.text = ""
+        getSystemService(InputMethodManager::class.java)?.hideSoftInputFromWindow(findInput.windowToken, 0)
+        findInput.clearFocus()
+    }
+
+    // ================================================================ under the hood / markdown / QR
+
+    private fun openInspector(tab: Tab, section: String = "trackers") {
+        Inspector.capture(tab) {
+            startActivity(Intent(this, InspectorActivity::class.java).putExtra(InspectorActivity.EXTRA_SECTION, section))
+        }
+    }
+
+    private fun renderMarkdown(tab: Tab) {
+        tab.webView?.evaluateJavascript(MarkdownView.script(this)) { r ->
+            if (r?.trim('"') == "ok") tab.readerMode = true // back / menu reloads the raw file
+            else toast("Couldn't render this file")
+        }
+    }
+
+    private fun openQr(url: String?, scan: Boolean = false) {
+        val i = Intent(this, QrActivity::class.java)
+        if (url != null) i.putExtra(QrActivity.EXTRA_TEXT, url)
+        if (scan) i.putExtra(QrActivity.EXTRA_SCAN, true)
+        startActivity(i)
+    }
+
+    // ================================================================ reader mode
+
+    private fun toggleReader(tab: Tab) {
+        val wv = tab.webView ?: return
+        if (tab.readerMode) {
+            tab.readerMode = false
+            wv.reload()
+            return
+        }
+        wv.evaluateJavascript(Reader.script(this)) { result ->
+            when (result?.trim('"')) {
+                "ok" -> tab.readerMode = true
+                "none" -> toast("No article found on this page")
+                else -> toast("Reader mode couldn't read this page")
+            }
+        }
     }
 
     // ================================================================ suggestions
@@ -282,7 +401,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
 
     private fun load(url: String) {
         val tab = tabs.current ?: return
-        tabs.ensureLive(tab).loadUrl(url, TabManager.extraHeaders())
+        tabs.ensureLive(tab).loadUrl(UrlCleaner.clean(url), TabManager.extraHeaders())
     }
 
     private fun newTab(url: String = BrowserEngine.startPageUrl(), foreground: Boolean = true): Boolean {
@@ -295,6 +414,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     }
 
     private fun showTab(tab: Tab) {
+        if (::findBar.isInitialized && findBar.visibility == View.VISIBLE) closeFind()
         val wv = tab.webView ?: return
         if (wv.parent !== webContainer) {
             webContainer.removeAllViews()
@@ -315,14 +435,14 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         val marked = !t.isStartPage && BookmarkStore.contains(t.url)
         ImageViewCompat.setImageTintList(
             btnBookmark,
-            ColorStateList.valueOf(ContextCompat.getColor(this, if (marked) R.color.nebula_violet else R.color.starlight)),
+            ColorStateList.valueOf(Ui.color(this, if (marked) R.color.nebula_violet else R.color.starlight)),
         )
         val shieldColor = when {
             !Prefs.adblock -> R.color.starlight_dim
             AdBlocker.isSiteAllowed(t.pageHost) -> R.color.solar_amber
             else -> R.color.nebula_violet
         }
-        ImageViewCompat.setImageTintList(btnShield, ColorStateList.valueOf(ContextCompat.getColor(this, shieldColor)))
+        ImageViewCompat.setImageTintList(btnShield, ColorStateList.valueOf(Ui.color(this, shieldColor)))
     }
 
     private fun toggleBookmark() {
@@ -411,6 +531,21 @@ class MainActivity : AppCompatActivity(), BrowserHost {
             list.addView(Ui.row(this, title, sub, onClick = { dlg.dismiss(); action() }))
         }
         item("New tab") { newTab() }
+        if (t != null && !t.isStartPage) {
+            item("Find in page") { openFind() }
+            item(if (t.readerMode) "Exit reader mode" else "Reader mode", "Just the article, in your theme") { toggleReader(t) }
+            if (MarkdownView.looksLikeMarkdown(t.url)) {
+                item("Render Markdown", "Show this .md file formatted") { renderMarkdown(t) }
+            }
+            item("Under the hood", "Who's watching · network · console · certificate · source") { openInspector(t) }
+            item("QR code for this page", "Show it to another device, or scan one") { openQr(t.url) }
+            item("Add to start page", "Pin this site to Your shortcuts") {
+                ShortcutDialogs.edit(this, null, prefillUrl = t.url,
+                    prefillName = t.title.ifBlank { StartShortcuts.defaultName(t.url) }.take(40)) { reloadStartPages() }
+            }
+        } else {
+            item("Scan a QR code", "Open a link, magnet or text from a code") { openQr(null, scan = true) }
+        }
         if (t != null) {
             item("Desktop site", if (t.desktop) "On for this tab" else "Off for this tab") {
                 BrowserEngine.setDesktop(this, t, !t.desktop)
@@ -425,7 +560,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         item("Resource monitor", "CPU: ${Prefs.CPU_LABELS[Prefs.cpuMode]} · RAM: ${Prefs.ramLabel(Prefs.RAM_STEPS_MB.indexOf(Prefs.ramBudgetMb))}") { showResourceSheet() }
         if (t != null && !t.isStartPage) {
             item("Share page") {
-                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
+                AppLock.expectExternal(); startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, t.url), "Share"))
             }
             item("Copy link") { copy(t.url) }
         }
@@ -455,6 +590,10 @@ class MainActivity : AppCompatActivity(), BrowserHost {
                     toast(if (now) "Shield off for $host" else "Shield on for $host")
                     dlg.dismiss(); updateChrome(); t?.webView?.reload()
                 }))
+        }
+        if (t != null && !t.isStartPage) {
+            list.addView(Ui.row(this, "See who's watching →", "Every outside company this page contacted, and what was stopped",
+                onClick = { dlg.dismiss(); openInspector(t) }))
         }
         list.addView(Ui.row(this, "Tip", "Long-press any ad image or link → \"Block as ad\" to teach the shield."))
     }
@@ -494,6 +633,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         when (uri.host) {
             "search" -> uri.getQueryParameter("q")?.let { tab.webView?.loadUrl(Prefs.searchUrl(it), TabManager.extraHeaders()) }
             "bookmarks" -> startActivity(Intent(this, BookmarksActivity::class.java))
+            "shortcut-add" -> ShortcutDialogs.edit(this, null) { reloadStartPages() }
         }
     }
 
@@ -574,12 +714,25 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         val actions = mutableListOf<() -> Unit>()
         fun add(l: String, a: () -> Unit) { labels += l; actions += a }
 
+        // Start-page tiles: manage your shortcuts in place.
+        if (tab.isStartPage && link != null && (link.startsWith("http://") || link.startsWith("https://"))) {
+            val i = StartShortcuts.indexOf(link)
+            if (i >= 0) {
+                add("Edit shortcut") { ShortcutDialogs.edit(this, i) { reloadStartPages() } }
+                add("Remove from start page") { StartShortcuts.remove(i); reloadStartPages() }
+            } else {
+                add("Add to my shortcuts") {
+                    ShortcutDialogs.edit(this, null, prefillUrl = link, prefillName = StartShortcuts.defaultName(link)) { reloadStartPages() }
+                }
+            }
+        }
+
         if (link != null) {
             add("Open in new tab") { newTab(link) }
             add("Open in background tab") { if (newTab(link, foreground = false)) toast("Opened in background") }
             add("Copy link") { copy(link) }
             add("Share link") {
-                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), "Share"))
+                AppLock.expectExternal(); startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), "Share"))
             }
             add("Download link") { onDownloadRequested(tab, link, BrowserEngine.userAgentFor(this, tab), null, null, -1) }
         }
@@ -640,7 +793,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
         fileCallback?.onReceiveValue(null)
         fileCallback = callback
         return try {
-            fileLauncher.launch(params.createIntent())
+            AppLock.expectExternal(); fileLauncher.launch(params.createIntent())
             true
         } catch (e: Exception) {
             fileCallback = null
@@ -672,6 +825,8 @@ class MainActivity : AppCompatActivity(), BrowserHost {
 
     private fun onBack() {
         if (customView != null) { onHideCustomView(); return }
+        if (findBar.visibility == View.VISIBLE) { closeFind(); return }
+        tabs.current?.let { if (it.readerMode) { toggleReader(it); return } }
         if (urlBar.hasFocus()) { urlBar.clearFocus(); hideKeyboard(); return }
         val wv = tabs.current?.webView
         if (wv != null && wv.canGoBack()) { wv.goBack(); return }
@@ -711,7 +866,7 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     private fun snackTransfers(text: String) {
         Snackbar.make(webContainer, text, Snackbar.LENGTH_LONG)
             .setAction("View") { startActivity(Intent(this, TransfersActivity::class.java)) }
-            .setActionTextColor(ContextCompat.getColor(this, R.color.cosmic_blue))
+            .setActionTextColor(Ui.color(this, R.color.cosmic_blue))
             .show()
     }
 
@@ -726,4 +881,9 @@ class MainActivity : AppCompatActivity(), BrowserHost {
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+
+    companion object {
+        /** Tabs handed from the old screen to the new one during a theme change (memory only). */
+        private var carriedTabs: Pair<List<Tab>, Long?>? = null
+    }
 }

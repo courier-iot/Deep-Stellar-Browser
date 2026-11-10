@@ -16,15 +16,15 @@ fun AppCompatActivity.scaffold(title: String, content: View): MaterialToolbar {
     WindowCompat.setDecorFitsSystemWindows(window, false)
     val root = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setBackgroundColor(ContextCompat.getColor(this@scaffold, R.color.void_black))
+        setBackgroundColor(Ui.color(this@scaffold, R.color.void_black))
     }
     val bar = MaterialToolbar(this).apply {
         this.title = title
-        setTitleTextColor(ContextCompat.getColor(this@scaffold, R.color.starlight))
+        setTitleTextColor(Ui.color(this@scaffold, R.color.starlight))
         setNavigationIcon(R.drawable.ic_back)
-        navigationIcon?.setTint(ContextCompat.getColor(this@scaffold, R.color.starlight))
+        navigationIcon?.setTint(Ui.color(this@scaffold, R.color.starlight))
         setNavigationOnClickListener { finish() }
-        setBackgroundColor(ContextCompat.getColor(this@scaffold, R.color.void_black))
+        setBackgroundColor(Ui.color(this@scaffold, R.color.void_black))
     }
     root.addView(bar, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     root.addView(content, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))

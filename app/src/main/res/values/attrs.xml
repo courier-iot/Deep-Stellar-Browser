@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="dsBg" format="color" />
+    <attr name="dsSurface" format="color" />
+    <attr name="dsSurface2" format="color" />
+    <attr name="dsStroke" format="color" />
+    <attr name="dsText" format="color" />
+    <attr name="dsTextDim" format="color" />
+    <attr name="dsAccent" format="color" />
+    <attr name="dsAccent2" format="color" />
+    <attr name="dsAccent3" format="color" />
+</resources>

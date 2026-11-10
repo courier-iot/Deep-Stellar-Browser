@@ -15,12 +15,15 @@ class DeepStellarApp : Application() {
         super.onCreate()
         instance = this
         Prefs.init(this)
+        CrashLog.install(this)
         // Wipe before the WebView engine starts, in case the last session crashed.
         PrivacyWiper.wipeDiskCaches(this)
         DownloadEngine.wipePartials(this) // orphaned half-downloads from a previous run
         BookmarkStore.init(this)
         HistoryStore.init(this) // only decrypts if you've turned history on
         AdBlocker.init(this)
+        runCatching { dev.deepstellar.browser.adblock.FilterUpdates.ensureScheduled(this) }
+        AppLock.install(this)
 
         val nm = getSystemService(NotificationManager::class.java)
         nm?.createNotificationChannel(

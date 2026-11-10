@@ -1,5 +1,6 @@
 package dev.deepstellar.browser.ui
 
+import dev.deepstellar.browser.AppLock
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -48,6 +49,7 @@ class BookmarksActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
         list = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -55,11 +57,11 @@ class BookmarksActivity : AppCompatActivity() {
         }
         val bar = scaffold(getString(R.string.bookmarks), ScrollView(this).apply { addView(list) })
         bar.menu.add("Import").setOnMenuItemClickListener {
-            importer.launch(arrayOf("text/html", "text/plain", "application/octet-stream", "*/*")); true
+            AppLock.expectExternal(); importer.launch(arrayOf("text/html", "text/plain", "application/octet-stream", "*/*")); true
         }
         bar.menu.add("Export").setOnMenuItemClickListener {
             val stamp = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            exporter.launch("deep-stellar-bookmarks-$stamp.html"); true
+            AppLock.expectExternal(); exporter.launch("deep-stellar-bookmarks-$stamp.html"); true
         }
         render()
     }

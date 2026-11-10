@@ -94,6 +94,21 @@
             android:title="Update filter lists"
             android:summary="Download StevenBlack hosts + AdGuard DNS filter"
             app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="filter_auto"
+            android:title="Update lists automatically"
+            android:defaultValue="0"
+            android:entries="@array/filter_auto_names"
+            android:entryValues="@array/filter_auto_values"
+            android:dependency="adblock_enabled"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="filter_wifi_only"
+            android:title="Automatic updates on Wi-Fi only"
+            android:defaultValue="true"
+            android:dependency="adblock_enabled"
+            app:iconSpaceReserved="false" />
         <Preference
             android:key="reset_learning"
             android:title="Reset learning"
@@ -115,6 +130,12 @@
             android:defaultValue="true"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
+            android:key="strip_trackers"
+            android:title="Clean links"
+            android:summary="Remove tracking tags (utm_, fbclid, gclid…) and skip Google/Facebook click-through redirects"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
             android:key="block_3p_cookies"
             android:title="Block third-party cookies"
             android:defaultValue="true"
@@ -130,6 +151,32 @@
             android:title="JavaScript"
             android:summary="Turning this off breaks many sites but removes most tracking scripts"
             android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="app_lock"
+            android:title="App lock"
+            android:summary="Fingerprint, face or your screen-lock PIN to open Deep Stellar"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="app_lock_after"
+            android:title="Lock after leaving the app"
+            android:defaultValue="0"
+            android:entries="@array/app_lock_after_names"
+            android:entryValues="@array/app_lock_after_values"
+            android:dependency="app_lock"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="panic_tile"
+            android:title="Panic wipe tile"
+            android:summary="A Quick Settings button that stops downloads and torrents, wipes site data, and closes Deep Stellar instantly — even from the lock screen"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="panic_history"
+            android:title="Panic wipe also erases history"
+            android:summary="Only matters if encrypted history is on"
+            android:defaultValue="false"
             app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:key="secure_screen"
@@ -200,7 +247,33 @@
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Start page" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="start_show_rec"
+            android:title="Show Recommended"
+            android:summary="Wikipedia, Maps, Archive, GitHub, APOD, r/space, HN, Bookmarks"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="start_show_mine"
+            android:title="Show Your shortcuts"
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="manage_shortcuts"
+            android:title="Manage your shortcuts"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="Look" app:iconSpaceReserved="false">
+        <ListPreference
+            android:key="theme"
+            android:title="Theme"
+            android:defaultValue="nebula"
+            android:entries="@array/theme_names"
+            android:entryValues="@array/theme_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:key="starfield"
             android:title="Animated starfield"
@@ -231,6 +304,86 @@
             android:key="torrent_seed"
             android:title="Keep seeding after download"
             android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Backup" app:iconSpaceReserved="false">
+        <Preference
+            android:key="backup_create"
+            android:title="Create encrypted backup"
+            android:summary="Settings, bookmarks, your block list — optionally history and the learned ad model — in one password-protected file. No cloud."
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="auto_backup_enabled"
+            android:title="Automatic backups"
+            android:summary="Encrypted backups on a schedule, to a folder you choose"
+            android:defaultValue="false"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="auto_backup_status"
+            android:title="Back up now"
+            android:dependency="auto_backup_enabled"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="auto_backup_folder_pick"
+            android:title="Backup folder"
+            android:dependency="auto_backup_enabled"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="auto_backup_freq"
+            android:title="How often"
+            android:defaultValue="1"
+            android:entries="@array/auto_freq_names"
+            android:entryValues="@array/auto_freq_values"
+            android:dependency="auto_backup_enabled"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="auto_backup_keep"
+            android:title="Keep the newest"
+            android:defaultValue="5"
+            android:entries="@array/auto_keep_names"
+            android:entryValues="@array/auto_keep_values"
+            android:dependency="auto_backup_enabled"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="auto_backup_charging"
+            android:title="Only while charging"
+            android:defaultValue="false"
+            android:dependency="auto_backup_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="auto_backup_history"
+            android:title="Include history"
+            android:summary="Only if encrypted history is on"
+            android:defaultValue="false"
+            android:dependency="auto_backup_enabled"
+            app:iconSpaceReserved="false" />
+        <SwitchPreferenceCompat
+            android:key="auto_backup_model"
+            android:title="Include learned ad model"
+            android:defaultValue="true"
+            android:dependency="auto_backup_enabled"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="backup_restore"
+            android:title="Restore from backup"
+            android:summary="Replaces this phone's settings and bookmarks with the backup's"
+            app:iconSpaceReserved="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Crash reports" app:iconSpaceReserved="false">
+        <SwitchPreferenceCompat
+            android:key="crash_log"
+            android:title="Save crash reports on this phone"
+            android:summary="Only app version, Android version, device model and the error — addresses are blanked out. Never sent anywhere unless you share one."
+            android:defaultValue="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="crash_reports"
+            android:title="View crash reports"
+            android:dependency="crash_log"
             app:iconSpaceReserved="false" />
     </PreferenceCategory>
 

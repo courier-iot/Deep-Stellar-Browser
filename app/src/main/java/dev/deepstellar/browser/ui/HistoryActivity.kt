@@ -1,5 +1,6 @@
 package dev.deepstellar.browser.ui
 
+import dev.deepstellar.browser.AppLock
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -36,6 +37,7 @@ class HistoryActivity : AppCompatActivity() {
     private val dayFmt = SimpleDateFormat("EEEE, MMM d", Locale.getDefault())
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        Themes.apply(this)
         super.onCreate(savedInstanceState)
 
         search = EditText(this).apply {
@@ -93,6 +95,7 @@ class HistoryActivity : AppCompatActivity() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = onUnlocked()
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = finish()
         })
+        AppLock.expectExternal() // the PIN screen is a separate system screen
         prompt.authenticate(
             BiometricPrompt.PromptInfo.Builder()
                 .setTitle("Unlock history")

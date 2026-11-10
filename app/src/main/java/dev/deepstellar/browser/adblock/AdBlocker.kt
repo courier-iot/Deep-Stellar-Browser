@@ -163,6 +163,16 @@ object AdBlocker {
         }
     }
 
+    /** Adds a whole domain (and its subdomains) to your personal block list. */
+    fun userBlockDomain(domain: String) = io.execute {
+        val d = domain.lowercase().trim()
+        if (d.isEmpty() || d in userDomains) return@execute
+        userDomains = userDomains + d
+        runCatching { userFile.appendText(d + "\n") }
+    }
+
+    fun isUserBlocked(domain: String): Boolean = domain.lowercase() in userDomains
+
     /** "This site broke" → stop filtering it, and nudge the model away from its resources. */
     fun toggleSiteAllowed(pageHost: String): Boolean {
         val reg = DomainUtil.registrable(pageHost)

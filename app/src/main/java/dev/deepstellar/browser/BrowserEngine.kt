@@ -23,7 +23,11 @@ import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewAssetLoader
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import android.webkit.ConsoleMessage
 import dev.deepstellar.browser.adblock.AdBlocker
+import dev.deepstellar.browser.adblock.DomainUtil
+import dev.deepstellar.browser.inspect.ConsoleLog
+import dev.deepstellar.browser.inspect.RequestLog
 import dev.deepstellar.browser.history.HistoryStore
 import java.io.ByteArrayInputStream
 
@@ -50,7 +54,7 @@ object BrowserEngine {
     fun startPageUrl(): String {
         val fps = when (Prefs.cpuMode) { 0 -> 60; 1 -> 45; 2 -> 24; else -> 12 }
         val still = if (!Prefs.starfield || Prefs.cpuMode == 3) "1" else "0"
-        return "$START_PAGE_PREFIX?fps=$fps&still=$still"
+        return "$START_PAGE_PREFIX?fps=$fps&still=$still&theme=${dev.deepstellar.browser.ui.Themes.current}"
     }
 
     private var defaultUa: String? = null
@@ -157,13 +161,20 @@ object BrowserEngine {
     @SuppressLint("ClickableViewAccessibility")
     fun create(ctx: Context, tab: Tab, host: BrowserHost): WebView {
         val wv = WebView(ctx)
-        wv.setBackgroundColor(Color.parseColor("#05060F"))
+        wv.setBackgroundColor(dev.deepstellar.browser.ui.Ui.color(ctx, R.color.void_black))
         wv.isVerticalScrollBarEnabled = true
         applySettings(ctx, wv, tab)
 
         val assets = WebViewAssetLoader.Builder()
             .setDomain(ASSET_HOST)
             .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(ctx))
+            // Start-page settings and your shortcuts, served from memory (other sites can't read it: no CORS).
+            .addPathHandler("/data/", WebViewAssetLoader.PathHandler { path ->
+                if (path == "start.json") {
+                    WebResourceResponse("application/json", "utf-8",
+                        ByteArrayInputStream(StartShortcuts.json().toByteArray(Charsets.UTF_8)))
+                } else null
+            })
             .build()
 
         wv.webViewClient = object : WebViewClient() {
@@ -173,13 +184,28 @@ object BrowserEngine {
                 return when (uri.scheme?.lowercase()) {
                     "dsb" -> { host.onSpecialUrl(tab, uri); true }
                     "magnet" -> { host.onMagnet(uri.toString()); true }
-                    "http" -> {
-                        if (request.isForMainFrame && Prefs.httpsOnly && uri.host != tab.httpAllowedHost) {
-                            view.loadUrl(uri.buildUpon().scheme("https").build().toString())
+                    "http", "https" -> {
+                        if (!request.isForMainFrame) return false
+                        val original = uri.toString()
+                        var target = original
+                        // 1) Unwrap tracking redirects and strip tracking parameters.
+                        val cleaned = UrlCleaner.clean(original)
+                        if (cleaned != original && !(request.isRedirect && cleaned == tab.lastCleaned)) {
+                            // (the isRedirect check stops a loop if a server insists on re-adding them)
+                            target = cleaned
+                            tab.lastCleaned = cleaned
+                        }
+                        // 2) HTTPS-only upgrade.
+                        val targetHost = Uri.parse(target).host
+                        if (target.startsWith("http://") && Prefs.httpsOnly && targetHost != tab.httpAllowedHost) {
+                            target = "https://" + target.removePrefix("http://")
+                        }
+                        if (target != original) {
+                            view.loadUrl(target, TabManager.extraHeaders())
                             true
                         } else false
                     }
-                    "https", "about", "data", "blob", "javascript" -> false
+                    "about", "data", "blob", "javascript" -> false
                     else -> { host.onExternalIntent(uri.toString()); true }
                 }
             }
@@ -187,7 +213,26 @@ object BrowserEngine {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
                 val uri = request.url
                 if (uri.host == ASSET_HOST) return assets.shouldInterceptRequest(uri)
+                if (request.isForMainFrame) {
+                    // New page: reset the inspector logs and judge first/third party against it.
+                    tab.net.clear()
+                    tab.console.clear()
+                    tab.pageHost = uri.host
+                }
                 val verdict = AdBlocker.check(uri, tab.pageHost, request.isForMainFrame)
+                val reqHost = uri.host ?: ""
+                tab.net.add(
+                    RequestLog.Entry(
+                        time = System.currentTimeMillis(),
+                        method = request.method ?: "GET",
+                        url = uri.toString().take(600),
+                        host = reqHost,
+                        type = RequestLog.guessType(uri, request.requestHeaders?.get("Accept"), request.isForMainFrame),
+                        thirdParty = DomainUtil.isThirdParty(reqHost, tab.pageHost),
+                        mainFrame = request.isForMainFrame,
+                        verdict = verdict,
+                    )
+                )
                 if (verdict != AdBlocker.Verdict.ALLOW) {
                     tab.blockedOnPage++
                     return WebResourceResponse("text/plain", "utf-8", ByteArrayInputStream(ByteArray(0)))
@@ -199,6 +244,7 @@ object BrowserEngine {
                 tab.url = url
                 tab.pageHost = Uri.parse(url).host
                 tab.blockedOnPage = 0
+                tab.readerMode = false
                 tab.progress = 0
                 host.onTabUpdated(tab)
                 fallbackThrottle(view, tab)
@@ -243,6 +289,18 @@ object BrowserEngine {
             override fun onProgressChanged(view: WebView, newProgress: Int) {
                 tab.progress = newProgress
                 host.onTabUpdated(tab)
+            }
+
+            override fun onConsoleMessage(msg: ConsoleMessage): Boolean {
+                tab.console.add(
+                    ConsoleLog.Entry(
+                        msg.messageLevel()?.name?.lowercase() ?: "log",
+                        msg.message() ?: "",
+                        msg.sourceId() ?: "",
+                        msg.lineNumber(),
+                    )
+                )
+                return true // keep page logs out of the system log
             }
 
             override fun onReceivedTitle(view: WebView, title: String?) {
