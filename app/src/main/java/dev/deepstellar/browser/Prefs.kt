@@ -47,17 +47,65 @@ object Prefs {
     val searchEngine: String get() = sp.getString("search_engine", "ddg") ?: "ddg"
     private val searxUrl: String get() = sp.getString("searx_url", "https://searx.be")?.trimEnd('/') ?: "https://searx.be"
 
+    /**
+     * Search region: which country's results come first. "none" = no region (the old behaviour).
+     * This only changes the search address (and Brave's region cookie). It does not hide your
+     * real location from websites; that would need a VPN or Tor.
+     */
+    private class Region(val ddg: String, val lang: String)
+
+    /** Country code → DuckDuckGo region code + language tag (used by SearXNG). */
+    private val REGIONS: Map<String, Region> = mapOf(
+        "au" to Region("au-en", "en-AU"),
+        "br" to Region("br-pt", "pt-BR"),
+        "ca" to Region("ca-en", "en-CA"),
+        "cn" to Region("cn-zh", "zh-CN"),
+        "fr" to Region("fr-fr", "fr-FR"),
+        "de" to Region("de-de", "de-DE"),
+        "hk" to Region("hk-tzh", "zh-HK"),
+        "in" to Region("in-en", "en-IN"),
+        "it" to Region("it-it", "it-IT"),
+        "jp" to Region("jp-jp", "ja-JP"),
+        "mx" to Region("mx-es", "es-MX"),
+        "nl" to Region("nl-nl", "nl-NL"),
+        "pl" to Region("pl-pl", "pl-PL"),
+        "ru" to Region("ru-ru", "ru-RU"),
+        "kr" to Region("kr-kr", "ko-KR"),
+        "es" to Region("es-es", "es-ES"),
+        "se" to Region("se-sv", "sv-SE"),
+        "tw" to Region("tw-tzh", "zh-TW"),
+        "gb" to Region("uk-en", "en-GB"),
+        "us" to Region("us-en", "en-US"),
+    )
+
+    val searchRegion: String get() = (sp.getString("search_region", "none") ?: "none").lowercase()
+
     fun searchUrl(query: String): String {
         val q = android.net.Uri.encode(query)
+        val cc = searchRegion
+        val region = REGIONS[cc]
+        val ddgDefault = "https://duckduckgo.com/?q=$q&kp=-2&kl=${region?.ddg ?: "wt-wt"}"
         return when (searchEngine) {
-            "ddg_lite" -> "https://lite.duckduckgo.com/lite/?q=$q"
-            "brave" -> "https://search.brave.com/search?q=$q"
+            "ddg_lite" -> "https://lite.duckduckgo.com/lite/?q=$q" + (region?.let { "&kl=${it.ddg}" } ?: "")
+            "brave" -> {
+                setBraveRegion(if (region != null) cc else null)
+                "https://search.brave.com/search?q=$q"
+            }
             "startpage" -> "https://www.startpage.com/do/search?q=$q"
             "mojeek" -> "https://www.mojeek.com/search?q=$q"
-            "searx" -> "$searxUrl/search?q=$q"
+            "searx" -> "$searxUrl/search?q=$q" + (region?.let { "&language=${it.lang}" } ?: "")
             "custom" -> (sp.getString("custom_search_url", "")?.takeIf { it.contains("%s") && it.startsWith("http") }
-                ?.replace("%s", q)) ?: "https://duckduckgo.com/?q=$q&kp=-2&kl=wt-wt"
-            else -> "https://duckduckgo.com/?q=$q&kp=-2&kl=wt-wt"
+                ?.replace("%s", q)) ?: ddgDefault
+            else -> ddgDefault
+        }
+    }
+
+    /** Brave picks its region from a first-party cookie, not the address. Wiped on exit like every cookie. */
+    private fun setBraveRegion(country: String?) {
+        runCatching {
+            val cm = android.webkit.CookieManager.getInstance()
+            val value = if (country != null) "country=$country; Path=/; Secure" else "country=; Path=/; Secure; Max-Age=0"
+            cm.setCookie("https://search.brave.com", value)
         }
     }
 

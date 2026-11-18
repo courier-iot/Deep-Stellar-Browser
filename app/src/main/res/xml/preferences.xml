@@ -11,6 +11,19 @@
             android:entryValues="@array/engine_values"
             app:useSimpleSummaryProvider="true"
             app:iconSpaceReserved="false" />
+        <ListPreference
+            android:key="search_region"
+            android:title="Search region"
+            android:defaultValue="none"
+            android:entries="@array/region_names"
+            android:entryValues="@array/region_values"
+            app:useSimpleSummaryProvider="true"
+            app:iconSpaceReserved="false" />
+        <Preference
+            android:key="search_region_note"
+            android:selectable="false"
+            android:summary="Puts websites from that country first in your results. Works with DuckDuckGo, DuckDuckGo Lite, Brave and SearXNG; Startpage and Mojeek ignore it. Websites still see your real location."
+            app:iconSpaceReserved="false" />
         <SwitchPreferenceCompat
             android:key="suggest_enabled"
             android:title="Address bar suggestions"
